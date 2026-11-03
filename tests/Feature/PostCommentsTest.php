@@ -1,6 +1,6 @@
 <?php
 
-use App\Livewire\PostComments;
+use App\Livewire\Posts\PostComments;
 use App\Models\Post;
 use App\Models\User;
 use Database\Seeders\CoffeeDemoSeeder;

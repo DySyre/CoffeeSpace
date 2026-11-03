@@ -1,7 +1,7 @@
 <?php
 
-use App\Livewire\CreatePost;
-use App\Livewire\Discover;
+use App\Livewire\Discover\DiscoverFeed;
+use App\Livewire\Page\AddExperience;
 use App\Models\Post;
 use App\Models\PostMedia;
 use App\Models\User;
@@ -22,7 +22,7 @@ function postPhoto(string $name)
 
 function postEditor(User $user)
 {
-    return Livewire::actingAs($user)->test(CreatePost::class)
+    return Livewire::actingAs($user)->test(AddExperience::class)
         ->set('title', 'My new coffee spot')->set('body', 'A lovely place to meet friends.')
         ->set('cafeName', 'Morning Café')->set('city', 'Meycauayan, Bulacan');
 }
@@ -42,7 +42,7 @@ test('a photo post and its media belong to the authenticated user', function () 
     expect($media->kind)->toBe('image');
     expect($media->post->is($post))->toBeTrue();
     Storage::disk('local')->assertExists($media->path);
-    Livewire::test(Discover::class)->assertSee('My new coffee spot')->assertSee(route('post-media.show', $media));
+    Livewire::test(DiscoverFeed::class)->assertSee('My new coffee spot')->assertSee(route('post-media.show', $media));
 });
 
 test('the picker adds and removes files without discarding other selections', function () {
@@ -57,7 +57,7 @@ test('the picker adds and removes files without discarding other selections', fu
 });
 
 test('guests cannot publish posts through the component', function () {
-    Livewire::test(CreatePost::class)->call('save')->assertStatus(401);
+    Livewire::test(AddExperience::class)->call('save')->assertStatus(401);
 
     $this->assertDatabaseCount('posts', 0);
 });
@@ -119,7 +119,7 @@ test('private posts do not appear in the public feed', function () {
 
     postEditor($user)->set('visibility', 'private')->set('uploads', [postPhoto('photo.png')])->call('save')->assertHasNoErrors();
 
-    Livewire::test(Discover::class)->assertDontSee('My new coffee spot');
+    Livewire::test(DiscoverFeed::class)->assertDontSee('My new coffee spot');
     expect(Post::sole()->visibility)->toBe('private');
 });
 

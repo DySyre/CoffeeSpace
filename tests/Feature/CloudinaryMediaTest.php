@@ -1,6 +1,6 @@
 <?php
 
-use App\Livewire\CreatePost;
+use App\Livewire\Page\AddExperience;
 use App\Models\Post;
 use App\Models\User;
 use App\Services\CloudinaryMediaClient;
@@ -50,7 +50,7 @@ test('posts upload photos and videos into separate per-post Cloudinary folders',
     $photo = UploadedFile::fake()->createWithContent('photo.jpg', file_get_contents(public_path('images/cafe.jpg')));
     $video = UploadedFile::fake()->createWithContent('video.mp4', file_get_contents(__DIR__.'/../Fixtures/video.mp4'));
 
-    Livewire::actingAs($user)->test(CreatePost::class)
+    Livewire::actingAs($user)->test(AddExperience::class)
         ->set('title', 'A cloud coffee story')->set('body', 'A visit with friends.')
         ->set('cafeName', 'Corner Café')->set('city', 'Bulacan')->set('uploads', [$photo, $video])
         ->call('save')->assertHasNoErrors()->assertRedirect(route('home'));
@@ -83,7 +83,7 @@ test('an upload failure removes prior remote assets and rolls back the post', fu
     });
     $photo = fn ($name) => UploadedFile::fake()->createWithContent($name, file_get_contents(public_path('images/cafe.jpg')));
 
-    Livewire::actingAs($user)->test(CreatePost::class)
+    Livewire::actingAs($user)->test(AddExperience::class)
         ->set('title', 'A cloud coffee story')->set('body', 'A visit with friends.')
         ->set('cafeName', 'Corner Café')->set('city', 'Bulacan')->set('uploads', [$photo('one.jpg'), $photo('two.jpg')])
         ->call('save')->assertHasErrors('uploads')->assertDontSee('Sensitive provider detail');

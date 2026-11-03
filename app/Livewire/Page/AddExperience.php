@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Livewire;
+namespace App\Livewire\Page;
 
 use App\Rules\PostMediaUpload;
 use App\Services\MediaInspector;
@@ -14,7 +14,7 @@ use Livewire\Component;
 use Livewire\WithFileUploads;
 use Throwable;
 
-class CreatePost extends Component
+class AddExperience extends Component
 {
     use WithFileUploads;
 
@@ -99,11 +99,11 @@ class CreatePost extends Component
 
         RateLimiter::hit($rateKey, 60);
         session()->flash('post-status', $this->visibility === 'private' ? 'Your private post has been saved. It will not appear in the public feed.' : 'Your post has been published.');
-        $this->redirectRoute('home');
+        $this->redirectRoute('home', navigate: true);
     }
 
     public function render(): View
     {
-        return view('livewire.create-post')->layout('components.layouts.coffee', ['title' => 'Add Experience · CoffeeSpace', 'section' => 'post']);
+        return view('livewire.page.AddExperience')->layout('components.layouts.coffee', ['title' => 'Add Experience · CoffeeSpace', 'section' => 'post']);
     }
 }

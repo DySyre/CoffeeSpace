@@ -11,6 +11,7 @@
     <div class="absolute top-5 right-5"><x-theme-toggle/></div>
     <main class="flex min-h-svh flex-col items-center justify-center px-6 py-12">
         <a href="{{ route('home') }}" aria-label="CoffeeSpace home" class="mb-12"><x-brand/></a>
+        <link rel="icon" type="image/x-icon" href="{{ asset('favicon.png') }}">
         <section class="w-full max-w-[340px]">
             <h1 class="mb-7 font-display text-3xl">{{ $title }}</h1>
             @if(session('status'))<p role="status" class="mb-5 border-l-2 border-brand bg-soft p-3 text-sm">{{ session('status') }}</p>@endif

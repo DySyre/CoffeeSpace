@@ -43,7 +43,7 @@
             <flux:select.option value="private">Only me</flux:select.option>
         </flux:select>
         <div class="flex items-center justify-between gap-4 border-t border-line pt-6">
-            <a href="{{ route('home') }}" class="min-h-11 py-3 text-sm text-muted">Cancel</a>
+            <a href="{{ route('home') }}" wire:navigate class="min-h-11 py-3 text-sm text-muted">Cancel</a>
             <button type="submit" x-bind:disabled="uploading" wire:loading.attr="disabled" wire:target="save,upload,removeUpload" class="min-h-11 rounded-sm bg-brand px-6 py-3 text-sm font-medium text-on-brand disabled:opacity-50"><span wire:loading.remove wire:target="save">Publish post</span><span wire:loading wire:target="save">Saving your post…</span></button>
         </div>
     </form>
