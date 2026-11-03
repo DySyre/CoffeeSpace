@@ -9,7 +9,12 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Post extends Model
 {
-    protected $fillable = ['demo_key', 'author_handle', 'title', 'body', 'cafe_name', 'city', 'image_path', 'image_alt', 'rating', 'price_centavos', 'tag', 'visibility'];
+    protected $fillable = ['demo_key', 'author_handle', 'title', 'body', 'cafe_name', 'city', 'image_path', 'image_alt', 'rating', 'price_centavos', 'tag', 'visibility', 'latitude', 'longitude'];
+
+    protected function casts(): array
+    {
+        return ['latitude' => 'decimal:7', 'longitude' => 'decimal:7'];
+    }
 
     public function user(): BelongsTo
     {

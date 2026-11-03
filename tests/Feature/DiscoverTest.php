@@ -112,6 +112,6 @@ test('signed in users see the correct personal milestone preview', function (str
 
     $this->actingAs($user)->get($url)->assertOk()->assertSee($message);
 })->with([
-    ['/experiences/create', 'Share a coffee story'],
+    ['/experiences/create', 'Publish post'],
     ['/budget', 'budget analytics are not connected yet.'],
 ]);

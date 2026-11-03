@@ -1,11 +1,13 @@
 <?php
 
 use App\Http\Controllers\PostMediaController;
+use App\Http\Controllers\ProfilePhotoController;
 use App\Livewire\Page\AddExperience;
 use App\Livewire\Page\Appearance;
 use App\Livewire\Page\CoffeeBudget;
 use App\Livewire\Page\CoffeeMap;
 use App\Livewire\Page\Discover;
+use App\Livewire\Page\MyProfile;
 use App\Livewire\Page\Password;
 use App\Livewire\Page\Profile;
 use Illuminate\Support\Facades\Route;
@@ -22,10 +24,11 @@ Route::get('/dashboard', Discover::class)
     ->name('dashboard');
 
 Route::middleware(['auth'])->group(function () {
+    Route::get('/profile/photo', ProfilePhotoController::class)->name('profile.photo');
     Route::get('/experiences/create', AddExperience::class)->name('coffee.post');
     Route::get('/budget', CoffeeBudget::class)->name('coffee.budget');
 
-    Route::redirect('/profile', '/settings/profile')->name('coffee.profile');
+    Route::get('/profile', MyProfile::class)->name('coffee.profile');
     Route::redirect('/settings', '/settings/profile');
 
     Route::prefix('settings')->name('settings.')->group(function () {

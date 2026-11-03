@@ -1,5 +1,7 @@
 # CoffeeSpace
 
+Post camera capture and optional location pins: [Camera and location](docs/POST_CAMERA_LOCATION.md).
+
 Page classes, view locations, routes, and navigation: [Page structure](docs/PAGE_STRUCTURE.md).
 
 Cloudinary post storage setup and current live-verification status: [Cloudinary setup](docs/CLOUDINARY_SETUP.md).

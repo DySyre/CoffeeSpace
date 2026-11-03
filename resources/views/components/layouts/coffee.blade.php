@@ -12,7 +12,7 @@
     $navigation = [
         ['discover', 'Discover', route('home')],
         ['map', 'Coffee Map', route('coffee.map')],
-        ['post', 'Add Experience', route('coffee.post')],
+        ['post', 'Post', route('coffee.post')],
         ['budget', 'Coffee Budget', route('coffee.budget')],
         ['profile', 'My Profile', route('coffee.profile')],
     ];
@@ -30,7 +30,7 @@
     </nav>
     <div class="mt-auto border-t border-line pt-6">
         @auth
-            <a href="{{ route('settings.profile') }}" wire:navigate class="flex items-center gap-3"><span class="avatar">{{ mb_substr(auth()->user()->name, 0, 1) }}</span><span class="min-w-0"><span class="block truncate text-sm font-semibold">{{ auth()->user()->name }}</span><span class="text-xs text-muted">Your coffee journey</span></span></a>
+            <a href="{{ route('coffee.profile') }}" wire:navigate class="flex items-center gap-3"><span class="avatar">{{ mb_substr(auth()->user()->name, 0, 1) }}</span><span class="min-w-0"><span class="block truncate text-sm font-semibold">{{ auth()->user()->name }}</span><span class="text-xs text-muted">Your coffee journey</span></span></a>
             <form method="post" action="{{ route('logout') }}" class="mt-4">@csrf<button type="submit" class="text-xs text-muted hover:text-brand">Log out</button></form>
         @else
             <a href="{{ route('login') }}" class="flex items-center gap-3"><span class="avatar"><x-coffee-icon name="profile"/></span><span><span class="block text-sm font-semibold">Your coffee journey</span><span class="text-xs text-muted">Log in to make it yours <span aria-hidden="true">↗</span></span></span></a>
@@ -39,7 +39,7 @@
 </aside>
 @endpersist
 <div class="lg:ml-60 xl:ml-64">
-    <div class="sticky top-0 z-20">
+    <div @class(['sticky top-0 z-20', 'hidden lg:block' => $section === 'post'])>
     @persist('coffee-header-'.$viewerKey)
     <header class="flex h-20 items-center justify-between gap-4 border-b border-line bg-page/95 px-5 backdrop-blur-md sm:px-9 xl:px-12">
         <a href="{{ route('home') }}" wire:navigate aria-label="CoffeeSpace home" class="flex items-center gap-2 font-display text-lg font-bold text-brand lg:hidden"><x-brand class="max-[360px]:[&_.brand-wordmark]:hidden"/></a>
@@ -50,14 +50,15 @@
             <x-theme-toggle/>
             <a href="{{ route('home', ['focus' => 'search']) }}" wire:navigate aria-label="Search café stories" class="rounded-sm p-2 sm:hidden"><x-coffee-icon name="search"/></a>
             
-            @auth <a href="{{ route('settings.profile') }}" wire:navigate aria-label="Account settings" class="avatar">{{ mb_substr(auth()->user()->name, 0, 1) }}</a><form method="post" action="{{ route('logout') }}" class="lg:hidden">@csrf<button type="submit" class="text-xs text-muted">Log out</button></form>
+            @auth <a href="{{ route('coffee.profile') }}" wire:navigate aria-label="My profile" class="avatar">{{ mb_substr(auth()->user()->name, 0, 1) }}</a><form method="post" action="{{ route('logout') }}" class="lg:hidden">@csrf<button type="submit" class="text-xs text-muted">Log out</button></form>
             @else <a href="{{ route('login') }}" class="text-xs font-semibold text-brand">Log in</a><a href="{{ route('register') }}" class="hidden rounded-sm bg-brand px-4 py-2.5 text-xs font-semibold text-on-brand sm:block">Sign up</a> @endauth
         </div>
     </header>
     @endpersist
     </div>
-    <main id="main-content" class="mx-auto max-w-[1400px] px-4 pt-8 pb-28 sm:px-9 lg:pb-12 xl:px-12">{{ $slot }}</main>
+    <main id="main-content" @class(['mx-auto max-w-[1400px] lg:pb-12 lg:px-9 xl:px-12', 'px-4 pt-8 pb-28 sm:px-9' => $section !== 'post', 'lg:pt-8' => $section === 'post'])>{{ $slot }}</main>
 </div>
+<div @class(['hidden' => $section === 'post'])>
 @persist('coffee-mobile-navigation-'.$viewerKey)
 <nav aria-label="Mobile navigation" class="fixed inset-x-0 bottom-0 z-30 flex justify-around border-t border-line bg-surface px-2 pt-2 pb-[max(.75rem,env(safe-area-inset-bottom))] lg:hidden">
     @foreach($navigation as [$key, $label, $href])
@@ -65,6 +66,7 @@
     @endforeach
 </nav>
 @endpersist
+</div>
 @fluxScripts
 </body>
 </html>

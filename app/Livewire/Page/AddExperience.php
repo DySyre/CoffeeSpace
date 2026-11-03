@@ -28,6 +28,10 @@ class AddExperience extends Component
 
     public string $visibility = 'public';
 
+    public float|string|null $latitude = null;
+
+    public float|string|null $longitude = null;
+
     public $upload = null;
 
     public array $uploads = [];
@@ -40,7 +44,7 @@ class AddExperience extends Component
         $this->reset('upload');
     }
 
-    public function removeUpload(int $index): void
+    public function removeMedia(int $index): void
     {
         unset($this->uploads[$index]);
         $this->uploads = array_values($this->uploads);
@@ -54,12 +58,16 @@ class AddExperience extends Component
         $this->body = trim($this->body);
         $this->cafeName = trim($this->cafeName);
         $this->city = trim($this->city);
+        $this->latitude = $this->latitude === '' ? null : $this->latitude;
+        $this->longitude = $this->longitude === '' ? null : $this->longitude;
         $this->validate([
             'title' => ['required', 'string', 'max:160'],
             'body' => ['required', 'string', 'max:3000'],
             'cafeName' => ['required', 'string', 'max:255'],
             'city' => ['required', 'string', 'max:255'],
             'visibility' => ['required', Rule::in(['public', 'private'])],
+            'latitude' => ['nullable', 'required_with:longitude', 'numeric', 'between:-90,90'],
+            'longitude' => ['nullable', 'required_with:latitude', 'numeric', 'between:-180,180'],
             'uploads' => ['required', 'array', 'min:1'],
             'uploads.*' => ['required', 'file', new PostMediaUpload],
         ]);
@@ -80,6 +88,7 @@ class AddExperience extends Component
                     'title' => $this->title, 'body' => $this->body,
                     'cafe_name' => $this->cafeName, 'city' => $this->city,
                     'visibility' => $this->visibility,
+                    'latitude' => $this->latitude, 'longitude' => $this->longitude,
                 ]);
 
                 foreach ($this->uploads as $position => $file) {

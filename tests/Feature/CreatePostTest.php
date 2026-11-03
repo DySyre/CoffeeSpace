@@ -51,7 +51,7 @@ test('the picker adds and removes files without discarding other selections', fu
 
     postEditor($user)->set('upload', postPhoto('one.png'))
         ->assertHasNoErrors()->set('upload', postPhoto('two.jpg'))
-        ->assertHasNoErrors()->call('removeUpload', 0)->call('save')->assertHasNoErrors();
+        ->assertHasNoErrors()->call('removeMedia', 0)->call('save')->assertHasNoErrors();
 
     expect(Post::sole()->media()->count())->toBe(1);
 });
@@ -154,4 +154,43 @@ test('a failure saving media rolls back the post and cleans up files', function 
     } finally {
         PostMedia::flushEventListeners();
     }
+});
+
+test('an optional confirmed pin is saved with its user owned post', function (float $latitude, float $longitude) {
+    Storage::fake('local');
+    $user = User::factory()->create();
+
+    postEditor($user)->set('latitude', $latitude)->set('longitude', $longitude)
+        ->set('uploads', [postPhoto('photo.jpg')])->call('save')->assertHasNoErrors();
+
+    $post = Post::sole();
+    expect((float) $post->latitude)->toBe($latitude);
+    expect((float) $post->longitude)->toBe($longitude);
+    expect($post->user_id)->toBe($user->id);
+    Livewire::test(DiscoverFeed::class)->assertSee('View location pin');
+})->with([[14.7352, 120.9551], [0.0, 0.0], [-90.0, 180.0]]);
+
+test('invalid or incomplete location pins cannot be published', function ($latitude, $longitude, string $error) {
+    Storage::fake('local');
+    $user = User::factory()->create();
+
+    postEditor($user)->set('latitude', $latitude)->set('longitude', $longitude)
+        ->set('uploads', [postPhoto('photo.png')])->call('save')->assertHasErrors($error);
+
+    $this->assertDatabaseCount('posts', 0);
+    $this->assertDatabaseCount('post_media', 0);
+})->with([
+    [91, 120, 'latitude'], [-91, 120, 'latitude'], [14, 181, 'longitude'],
+    [14, -181, 'longitude'], [14, null, 'longitude'], [null, 0, 'latitude'],
+    ['invalid', 120, 'latitude'],
+]);
+
+test('private post pins are excluded from the public feed', function () {
+    Storage::fake('local');
+    $user = User::factory()->create();
+
+    postEditor($user)->set('latitude', 14.7352)->set('longitude', 120.9551)
+        ->set('visibility', 'private')->set('uploads', [postPhoto('photo.jpg')])->call('save')->assertHasNoErrors();
+
+    Livewire::test(DiscoverFeed::class)->assertDontSee('View location pin');
 });

@@ -23,8 +23,8 @@ test('signed in users can open the class based settings pages', function (string
     ['/settings/appearance', 'Appearance'],
 ]);
 
-test('profile shortcuts keep their existing destination', function (string $path) {
+test('settings shortcut keeps its existing destination', function (string $path) {
     $user = User::factory()->create();
 
     $this->actingAs($user)->get($path)->assertRedirect('/settings/profile');
-})->with(['/profile', '/settings']);
+})->with(['/settings']);

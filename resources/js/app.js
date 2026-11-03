@@ -1,3 +1,11 @@
+import postComposer from './post-composer';
+
+function registerPostComposer() {
+    window.Alpine?.data('postComposer', postComposer);
+}
+document.addEventListener('alpine:init', registerPostComposer, { once: true });
+if (window.Alpine) registerPostComposer();
+
 function syncCoffeeNavigation() {
     const path = window.location.pathname.replace(/\/+$/, '') || '/';
     const section = path === '/map' ? 'map'

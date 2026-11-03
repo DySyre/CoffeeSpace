@@ -75,6 +75,7 @@ class DiscoverFeed extends Component
             'price' => $post->price_centavos === null ? null : number_format($post->price_centavos / 100, 2), 'tag' => $post->tag,
             'media' => $post->media->map(fn ($item) => ['kind' => $item->kind, 'mime_type' => $item->mime_type, 'url' => route('post-media.show', $item)])->all(),
             'likes' => 0, 'comments_count' => $post->comments_count,
+            'latitude' => $post->latitude, 'longitude' => $post->longitude,
         ]);
 
         return view('livewire.discover.feed', [
