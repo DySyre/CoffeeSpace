@@ -1,0 +1,122 @@
+@import 'tailwindcss';
+@import '@fontsource-variable/dm-sans/wght.css';
+@import '@fontsource-variable/bricolage-grotesque/wght.css';
+@import '../../vendor/livewire/flux/dist/flux.css';
+
+@source "../views";
+@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
+@source '../../vendor/livewire/flux-pro/stubs/**/*.blade.php';
+@source '../../vendor/livewire/flux/stubs/**/*.blade.php';
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+    --font-display: 'Bricolage Grotesque Variable', 'DM Sans Variable', sans-serif;
+    --color-page: var(--coffee-page);
+    --color-surface: var(--coffee-surface);
+    --color-soft: var(--coffee-soft);
+    --color-ink: var(--coffee-ink);
+    --color-muted: var(--coffee-muted);
+    --color-brand: var(--coffee-brand);
+    --color-line: var(--coffee-line);
+    --color-caramel: #b88960;
+    --color-on-brand: var(--coffee-on-brand);
+    --font-sans: 'DM Sans Variable', ui-sans-serif, system-ui, sans-serif;
+
+    --color-zinc-50: #fafafa;
+    --color-zinc-100: #f5f5f5;
+    --color-zinc-200: #e5e5e5;
+    --color-zinc-300: #d4d4d4;
+    --color-zinc-400: #a3a3a3;
+    --color-zinc-500: #737373;
+    --color-zinc-600: #525252;
+    --color-zinc-700: #404040;
+    --color-zinc-800: #262626;
+    --color-zinc-900: #171717;
+    --color-zinc-950: #0a0a0a;
+
+    --color-accent: var(--coffee-brand);
+    --color-accent-content: var(--coffee-brand);
+    --color-accent-foreground: var(--coffee-on-brand);
+}
+
+:root {
+    --coffee-page: #ffffff;
+    --coffee-surface: #ffffff;
+    --coffee-soft: #f3ece4;
+    --coffee-ink: #35271f;
+    --coffee-muted: #79685c;
+    --coffee-brand: #805437;
+    --coffee-line: #e8e0d8;
+    --coffee-on-brand: #fffaf5;
+}
+
+.dark {
+    --coffee-page: #191614;
+    --coffee-surface: #27221e;
+    --coffee-soft: #382e27;
+    --coffee-ink: #f7eee6;
+    --coffee-muted: #c1ad9b;
+    --coffee-brand: #d6a87c;
+    --coffee-line: #493b32;
+    --coffee-on-brand: #251b14;
+}
+
+@layer components {
+    .auth-submit { @apply flex h-11 w-full items-center justify-center rounded-sm bg-brand text-sm font-medium text-on-brand hover:opacity-90; }
+    .coffee-app { @apply bg-page font-sans text-ink; font-optical-sizing: auto; }
+    .coffee-app :is(h1, h2, h3) { text-wrap: balance; letter-spacing: -.025em; }
+    .coffee-app p { text-wrap: pretty; }
+    .coffee-app input, .coffee-app textarea { caret-color: var(--coffee-brand); }
+    .coffee-app ::selection { background: var(--coffee-soft); color: var(--coffee-ink); }
+    .coffee-app { scrollbar-color: var(--coffee-line) var(--coffee-page); }
+    .feed-copy { @apply max-w-[68ch] text-base leading-7 text-muted; }
+    .feed-title { @apply font-display text-[22px] leading-tight font-semibold sm:text-2xl; }
+    .feed-filter { @apply min-h-11 whitespace-nowrap border-b-2 px-2 py-3 text-xs font-medium transition-colors sm:px-4 sm:text-sm; }
+    .feed-action { @apply inline-flex min-h-11 min-w-11 items-center justify-center gap-2 text-sm; }
+    .coffee-app button, .coffee-app a { @apply touch-manipulation; }
+    .coffee-app button { @apply cursor-pointer; }
+    .coffee-app :is(a, button, input):focus-visible { @apply outline-2 outline-offset-4 outline-brand; }
+    .avatar { @apply flex size-10 shrink-0 items-center justify-center rounded-full border border-line bg-soft text-xs font-semibold text-brand; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { scroll-behavior: auto !important; transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
+}
+
+@layer theme {
+    .dark {
+        --color-accent: var(--coffee-brand);
+        --color-accent-content: var(--coffee-brand);
+        --color-accent-foreground: var(--coffee-on-brand);
+    }
+}
+
+@layer base {
+
+    *,
+    ::after,
+    ::before,
+    ::backdrop,
+    ::file-selector-button {
+        border-color: var(--color-gray-200, currentColor);
+    }
+}
+
+[data-flux-field] {
+    @apply grid gap-2;
+}
+
+[data-flux-label] {
+    @apply  !mb-0 !leading-tight;
+}
+
+input:focus[data-flux-control],
+textarea:focus[data-flux-control],
+select:focus[data-flux-control] {
+    @apply outline-hidden ring-2 ring-accent ring-offset-2 ring-offset-accent-foreground;
+}
+
+/* \[:where(&)\]:size-4 {
+    @apply size-4;
+} */
