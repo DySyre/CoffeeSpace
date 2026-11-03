@@ -1,29 +1,41 @@
 <?php
 
 use App\Http\Controllers\PostMediaController;
-use App\Livewire\CreatePost;
+use App\Http\Controllers\ProfilePhotoController;
+use App\Livewire\Page\AddExperience;
+use App\Livewire\Page\Appearance;
+use App\Livewire\Page\CoffeeBudget;
+use App\Livewire\Page\CoffeeMap;
+use App\Livewire\Page\Discover;
+use App\Livewire\Page\MyProfile;
+use App\Livewire\Page\Password;
+use App\Livewire\Page\Profile;
 use Illuminate\Support\Facades\Route;
-use Livewire\Volt\Volt;
 
-Route::view('/', 'coffee.discover')->name('home');
-Route::view('/map', 'coffee.map')->name('coffee.map');
-Route::get('/experiences/create', CreatePost::class)
-    ->middleware('auth')->name('coffee.post');
+// Public pages.
+Route::get('/', Discover::class)->name('home');
+Route::get('/map', CoffeeMap::class)->name('coffee.map');
+
+// Media responses use a controller so images and video ranges can be streamed.
 Route::get('/post-media/{media}', [PostMediaController::class, 'show'])->name('post-media.show');
-Route::view('/budget', 'coffee.preview', ['section' => 'budget'])
-    ->middleware('auth')->name('coffee.budget');
-Route::redirect('/profile', '/settings/profile')->middleware('auth')->name('coffee.profile');
 
-Route::view('dashboard', 'coffee.discover')
+Route::get('/dashboard', Discover::class)
     ->middleware(['auth', 'verified'])
     ->name('dashboard');
 
 Route::middleware(['auth'])->group(function () {
-    Route::redirect('settings', 'settings/profile');
+    Route::get('/profile/photo', ProfilePhotoController::class)->name('profile.photo');
+    Route::get('/experiences/create', AddExperience::class)->name('coffee.post');
+    Route::get('/budget', CoffeeBudget::class)->name('coffee.budget');
 
-    Volt::route('settings/profile', 'settings.profile')->name('settings.profile');
-    Volt::route('settings/password', 'settings.password')->name('settings.password');
-    Volt::route('settings/appearance', 'settings.appearance')->name('settings.appearance');
+    Route::get('/profile', MyProfile::class)->name('coffee.profile');
+    Route::redirect('/settings', '/settings/profile');
+
+    Route::prefix('settings')->name('settings.')->group(function () {
+        Route::get('/profile', Profile::class)->name('profile');
+        Route::get('/password', Password::class)->name('password');
+        Route::get('/appearance', Appearance::class)->name('appearance');
+    });
 });
 
 require __DIR__.'/auth.php';

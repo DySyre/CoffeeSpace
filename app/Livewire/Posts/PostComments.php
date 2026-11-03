@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Livewire;
+namespace App\Livewire\Posts;
 
 use App\Models\Post;
 use Illuminate\Contracts\View\View;
@@ -70,6 +70,6 @@ class PostComments extends Component
             $comments = $post->comments()->with('user:id,name')->latest('id')->limit($this->limit)->get();
         }
 
-        return view('livewire.post-comments', ['comments' => $comments]);
+        return view('livewire.posts.post-comments', ['comments' => $comments]);
     }
 }

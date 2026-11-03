@@ -12,6 +12,8 @@ use Illuminate\Support\Str;
 
 class User extends Authenticatable // implements MustVerifyEmail
 {
+    public const DEFAULT_BIO = 'Collecting memories, one café at a time.';
+
     public function posts(): HasMany
     {
         return $this->hasMany(Post::class);
@@ -55,6 +57,7 @@ class User extends Authenticatable // implements MustVerifyEmail
     {
         return [
             'email_verified_at' => 'datetime',
+            'profile_photo' => 'array',
             'password' => 'hashed',
         ];
     }

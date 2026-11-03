@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Livewire;
+namespace App\Livewire\Discover;
 
 use App\Models\Post;
 use Illuminate\Contracts\View\View;
@@ -9,7 +9,7 @@ use Livewire\Attributes\Locked;
 use Livewire\Attributes\Url;
 use Livewire\Component;
 
-class Discover extends Component
+class DiscoverFeed extends Component
 {
     private const PAGE_SIZE = 2;
 
@@ -75,12 +75,12 @@ class Discover extends Component
             'price' => $post->price_centavos === null ? null : number_format($post->price_centavos / 100, 2), 'tag' => $post->tag,
             'media' => $post->media->map(fn ($item) => ['kind' => $item->kind, 'mime_type' => $item->mime_type, 'url' => route('post-media.show', $item)])->all(),
             'likes' => 0, 'comments_count' => $post->comments_count,
+            'latitude' => $post->latitude, 'longitude' => $post->longitude,
         ]);
 
-        return view('livewire.discover', [
+        return view('livewire.discover.feed', [
             'stories' => $stories,
             'hasMore' => $posts->count() > $this->visibleCount,
-        ])
-            ->layout('components.layouts.coffee', ['title' => 'Discover · CoffeeSpace', 'section' => 'discover']);
+        ]);
     }
 }

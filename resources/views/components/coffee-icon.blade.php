@@ -1,6 +1,10 @@
 @props(['name' => 'coffee'])
 <svg {{ $attributes->merge(['class' => 'size-5 shrink-0']) }} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
     @switch($name)
+        @case('settings') <path d="m9.5 3-.7 2.3-2.3 1-2.2-.6-2 3.5L4 11v2l-1.7 1.8 2 3.5 2.2-.6 2.3 1 .7 2.3h5l.7-2.3 2.3-1 2.2.6 2-3.5L20 13v-2l1.7-1.8-2-3.5-2.2.6-2.3-1L14.5 3Z"/><circle cx="12" cy="12" r="3"/> @break
+        @case('camera') <path d="M3 7h4l2-3h6l2 3h4v14H3Z"/><circle cx="12" cy="13" r="4"/> @break
+        @case('image') <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8" cy="8" r="2"/><path d="m3 17 5-5 4 4 4-6 5 7"/> @break
+        @case('video') <rect x="3" y="5" width="13" height="14" rx="2"/><path d="m16 10 5-4v12l-5-4"/> @break
         @case('refresh') <path d="M20 7v5h-5M4 17v-5h5M5 7a8 8 0 0 1 13-2l2 2M4 17l2 2a8 8 0 0 0 13-2"/> @break
         @case('comment') <path d="M21 11a8 8 0 0 1-8 8H7l-5 3 2-6a8 8 0 1 1 17-5Z"/> @break
         @case('moon') <path d="M20.5 13a8.5 8.5 0 0 1-9.5-9.5A8.5 8.5 0 1 0 20.5 13Z"/> @break

@@ -1,6 +1,6 @@
 <?php
 
-use App\Livewire\Discover;
+use App\Livewire\Discover\DiscoverFeed;
 use App\Models\Post;
 use App\Models\User;
 use Database\Seeders\CoffeeDemoSeeder;
@@ -10,7 +10,7 @@ test('private posts are excluded from the feed and its search', function () {
     $this->seed(CoffeeDemoSeeder::class);
     Post::where('cafe_name', 'Manchi Café')->update(['visibility' => 'private']);
 
-    Livewire::test(Discover::class)->set('search', 'Manchi')
+    Livewire::test(DiscoverFeed::class)->set('search', 'Manchi')
         ->assertDontSee('A slow afternoon, a really good cup.')
         ->assertSee('No stories brewing here yet.');
 });
@@ -18,7 +18,7 @@ test('private posts are excluded from the feed and its search', function () {
 test('scrolling appends the next batch and stops at the end', function () {
     $this->seed(CoffeeDemoSeeder::class);
 
-    Livewire::test(Discover::class)
+    Livewire::test(DiscoverFeed::class)
         ->assertSee('Your sign to take the scenic coffee break.')
         ->assertDontSee('A slow afternoon, a really good cup.')
         ->call('loadMore', 2)
@@ -33,7 +33,7 @@ test('scrolling appends the next batch and stops at the end', function () {
 test('changing the search or filter restarts pagination', function () {
     $this->seed(CoffeeDemoSeeder::class);
 
-    Livewire::test(Discover::class)
+    Livewire::test(DiscoverFeed::class)
         ->call('loadMore', 2)
         ->set('search', 'coffee')
         ->assertSet('visibleCount', 2)
@@ -54,7 +54,7 @@ test('discover initially sends a loading placeholder instead of story data', fun
 test('refresh keeps the selected feed filter and search', function () {
     $this->seed(CoffeeDemoSeeder::class);
 
-    Livewire::test(Discover::class)
+    Livewire::test(DiscoverFeed::class)
         ->set('filter', 'nearby')
         ->set('search', 'Manchi')
         ->call('$refresh')
@@ -67,7 +67,7 @@ test('refresh keeps the selected feed filter and search', function () {
 test('guests can search sample stories by cafe', function () {
     $this->seed(CoffeeDemoSeeder::class);
 
-    Livewire::test(Discover::class)
+    Livewire::test(DiscoverFeed::class)
         ->set('search', 'Common Grounds')
         ->assertSee('A little latte art appreciation.')
         ->assertDontSee('A slow afternoon, a really good cup.');
@@ -76,7 +76,7 @@ test('guests can search sample stories by cafe', function () {
 test('nearby stories only show the selected sample area', function () {
     $this->seed(CoffeeDemoSeeder::class);
 
-    Livewire::test(Discover::class)
+    Livewire::test(DiscoverFeed::class)
         ->set('filter', 'nearby')
         ->assertSee('A slow afternoon, a really good cup.')
         ->assertDontSee('A little latte art appreciation.');
@@ -85,7 +85,7 @@ test('nearby stories only show the selected sample area', function () {
 test('following shows an honest empty state', function () {
     $this->seed(CoffeeDemoSeeder::class);
 
-    Livewire::test(Discover::class)
+    Livewire::test(DiscoverFeed::class)
         ->set('filter', 'following')
         ->assertSee('Your people. Your kind of coffee.')
         ->assertDontSee('A slow afternoon, a really good cup.');
@@ -94,7 +94,7 @@ test('following shows an honest empty state', function () {
 test('unmatched searches show a helpful empty state', function () {
     $this->seed(CoffeeDemoSeeder::class);
 
-    Livewire::test(Discover::class)
+    Livewire::test(DiscoverFeed::class)
         ->set('search', 'no-matching-cafe')
         ->assertSee('No stories brewing here yet.');
 });
@@ -112,6 +112,6 @@ test('signed in users see the correct personal milestone preview', function (str
 
     $this->actingAs($user)->get($url)->assertOk()->assertSee($message);
 })->with([
-    ['/experiences/create', 'Share a coffee story'],
+    ['/experiences/create', 'Publish post'],
     ['/budget', 'budget analytics are not connected yet.'],
 ]);

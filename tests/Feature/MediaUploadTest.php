@@ -1,6 +1,6 @@
 <?php
 
-use App\Livewire\CreatePost;
+use App\Livewire\Page\AddExperience;
 use App\Models\Post;
 use App\Models\User;
 use App\Rules\PostMediaUpload;
@@ -51,7 +51,7 @@ test('a video post stores its duration with the media record', function () {
     $user = User::factory()->create();
     $video = UploadedFile::fake()->createWithContent('visit.mp4', file_get_contents(__DIR__.'/../Fixtures/video.mp4'));
 
-    Livewire::actingAs($user)->test(CreatePost::class)
+    Livewire::actingAs($user)->test(AddExperience::class)
         ->set('title', 'A video visit')->set('body', 'A short café clip.')
         ->set('cafeName', 'Coffee Corner')->set('city', 'Bulacan')->set('uploads', [$video])
         ->call('save')->assertHasNoErrors();
