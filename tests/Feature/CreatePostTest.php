@@ -24,6 +24,7 @@ function postEditor(User $user)
 {
     return Livewire::actingAs($user)->test(AddExperience::class)
         ->set('title', 'My new coffee spot')->set('body', 'A lovely place to meet friends.')
+        ->set('latitude', 14.7352)->set('longitude', 120.9551)
         ->set('cafeName', 'Morning Café')->set('city', 'Meycauayan, Bulacan');
 }
 
@@ -50,7 +51,7 @@ test('the picker adds and removes files without discarding other selections', fu
     $user = User::factory()->create();
 
     postEditor($user)->set('upload', postPhoto('one.png'))
-        ->assertHasNoErrors()->set('upload', postPhoto('two.jpg'))
+        ->assertHasNoErrors()->set('upload', postPhoto('two.png'))
         ->assertHasNoErrors()->call('removeMedia', 0)->call('save')->assertHasNoErrors();
 
     expect(Post::sole()->media()->count())->toBe(1);
@@ -193,4 +194,24 @@ test('private post pins are excluded from the public feed', function () {
         ->set('visibility', 'private')->set('uploads', [postPhoto('photo.jpg')])->call('save')->assertHasNoErrors();
 
     Livewire::test(DiscoverFeed::class)->assertDontSee('View location pin');
+});
+
+test('a later photo with a different shape cannot be added to the post', function () {
+    $user = User::factory()->create();
+    $component = postEditor($user)->set('upload', postPhoto('first.jpg'))->assertHasNoErrors();
+    $component->set('upload', postPhoto('square.png'))->assertHasErrors('uploads');
+    expect($component->get('uploads'))->toHaveCount(1);
+});
+
+test('publishing rejects a mixed photo shape even when the queue is bypassed', function () {
+    $user = User::factory()->create();
+    postEditor($user)->set('uploads', [postPhoto('landscape.jpg'), postPhoto('square.png')])
+        ->call('save')->assertHasErrors('uploads');
+    $this->assertDatabaseCount('posts', 0);
+});
+
+test('post validation failures return an error toast instead of leaving a saving notification', function () {
+    $user = User::factory()->create();
+    postEditor($user)->call('save')->assertHasErrors('uploads')
+        ->assertDispatched('post-toast', fn ($event, $params) => $params['kind'] === 'error' && $params['title'] === 'Check your post');
 });

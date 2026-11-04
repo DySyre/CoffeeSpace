@@ -1,6 +1,8 @@
 # CoffeeSpace
 
-Post camera capture and optional location pins: [Camera and location](docs/POST_CAMERA_LOCATION.md).
+Database migration commands for SSH: [Deployment guide](DEPLOYMENT.md).
+
+Post camera capture and required location pins: [Camera and location](docs/POST_CAMERA_LOCATION.md).
 
 Page classes, view locations, routes, and navigation: [Page structure](docs/PAGE_STRUCTURE.md).
 

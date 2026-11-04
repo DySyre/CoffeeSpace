@@ -1,0 +1,10 @@
+<dialog x-ref="shareDialog" aria-labelledby="profile-share-title" class="m-auto max-h-[94dvh] w-[min(94vw,440px)] overflow-y-auto rounded-lg border border-[#b59375] bg-[#faf4eb] p-0 text-[#40281d] backdrop:bg-black/60">
+    <header class="flex items-center justify-between gap-3 bg-[#4b2c20] px-5 py-3 text-[#fff7ec]"><span x-ref="shareBrand"><x-brand :compact="true" class="[&_svg]:text-[#fff7ec]"/></span><h2 id="profile-share-title" class="flex-1 font-display text-lg font-semibold" x-text="shareKind === 'post' ? 'Share this post' : 'Share this profile'">Share this profile</h2><button type="button" x-on:click="$refs.shareDialog.close()" class="min-h-11 px-2 text-xs text-[#fff7ec]">Close share</button></header>
+    <div class="p-5">
+        <img x-cloak x-show="profileQr" x-bind:src="profileQr" x-bind:alt="shareKind === 'post' ? 'CoffeeSpace post QR card' : 'CoffeeSpace profile QR card'" class="mx-auto w-full max-w-[270px] rounded-sm">
+        <label for="share-profile-url" class="mt-4 block text-sm font-semibold" x-text="shareKind === 'post' ? 'Post link' : 'Profile link'">Profile link</label><input id="share-profile-url" x-bind:value="profileShareUrl" readonly x-on:click="$el.select()" class="mt-2 w-full rounded-sm border border-[#ccb59c] bg-white px-3 py-2.5 text-sm text-[#40281d]">
+        <p class="mt-2 text-xs leading-5 text-[#72513e]">Audience restrictions still apply. Sharing across devices needs your deployed website address.</p>
+        <div class="mt-4 flex flex-wrap gap-3"><button type="button" x-on:click="copyProfileLink()" class="flex min-h-11 items-center gap-2 rounded-sm bg-[#4b2c20] px-4 text-sm text-[#fff7ec]"><x-coffee-icon name="share" class="size-4"/><span x-text="profileLinkCopied ? 'Copied' : 'Copy link'">Copy link</span></button><a x-show="profileQr" x-bind:href="profileQr" x-bind:download="shareKind === 'post' ? 'coffeespace-post-qr.png' : 'coffeespace-profile-qr.png'" class="inline-flex min-h-11 items-center px-3 text-sm font-medium text-[#4b2c20]">Download QR card</a></div>
+        <p x-show="profileShareError" x-text="profileShareError" role="alert" class="mt-3 text-sm text-red-700"></p>
+    </div>
+</dialog>

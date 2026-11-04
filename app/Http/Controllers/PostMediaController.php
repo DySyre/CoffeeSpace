@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Post;
 use App\Models\PostMedia;
 use App\Services\CloudinaryMediaClient;
 use Illuminate\Http\Client\ConnectionException;
@@ -16,7 +17,8 @@ class PostMediaController extends Controller
     public function show(Request $request, PostMedia $media, CloudinaryMediaClient $cloudinary): BinaryFileResponse|StreamedResponse
     {
         $post = $media->post;
-        abort_unless($post->visibility === 'public' || $request->user()?->id === $post->user_id, 404);
+        abort_unless($post, 404);
+        abort_unless(Post::visibleTo($request->user())->whereKey($post->id)->exists(), 404);
         if ($media->disk === 'cloudinary') {
             try {
                 $response = $cloudinary->fetch($media->getAttributes(), $request->header('Range'));

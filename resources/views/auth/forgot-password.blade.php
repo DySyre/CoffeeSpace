@@ -4,5 +4,5 @@
         <x-auth-field name="email" label="Email" type="email" autocomplete="email" autofocus/>
         <button type="submit" class="auth-submit">Send reset link</button>
     </form>
-    <a href="{{ route('login') }}" class="mt-6 block text-center text-xs text-muted underline">Back to login</a>
+    <a href="{{ route('login') }}" class="auth-link mt-6">Back to login</a>
 </x-layouts.guest>

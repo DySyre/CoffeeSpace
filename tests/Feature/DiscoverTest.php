@@ -99,6 +99,26 @@ test('unmatched searches show a helpful empty state', function () {
         ->assertSee('No stories brewing here yet.');
 });
 
+test('signed in users can toggle likes and saves without duplicate rows', function () {
+    $this->seed(CoffeeDemoSeeder::class);
+    $user = User::factory()->create();
+    $post = Post::where('visibility', 'public')->firstOrFail();
+
+    Livewire::actingAs($user)->test(DiscoverFeed::class)
+        ->call('toggleLike', $post->id)->call('toggleLike', $post->id)
+        ->call('toggleLike', $post->id)->call('toggleSave', $post->id)
+        ->assertSee('aria-pressed="true"', false);
+    expect($post->likes()->count())->toBe(1)
+        ->and($post->savedBy()->whereKey($user->id)->exists())->toBeTrue();
+});
+
+test('guests cannot mutate post likes or saved posts', function () {
+    $post = User::factory()->create()->posts()->create(['author_handle' => 'coffee', 'title' => 'A public coffee', 'body' => 'Coffee.', 'cafe_name' => 'Cafe', 'city' => 'Bulacan']);
+
+    Livewire::test(DiscoverFeed::class)->call('toggleLike', $post->id)->assertStatus(401);
+    Livewire::test(DiscoverFeed::class)->call('toggleSave', $post->id)->assertStatus(401);
+});
+
 test('personal sections require authentication', function (string $url) {
     $this->get($url)->assertRedirect(route('login'));
 })->with(['/experiences/create', '/budget', '/profile']);

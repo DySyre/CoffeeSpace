@@ -7,7 +7,7 @@ return [
         'show_progress_bar' => false,
     ],
     'temporary_file_upload' => [
-        'rules' => ['required', 'file', 'max:10240', 'mimes:jpg,jpeg,png,mp4,mov', 'extensions:jpg,jpeg,png,mp4,mov'],
+        'rules' => ['required', 'file', 'max:25600', 'mimes:jpg,jpeg,png,mp4,mov', 'extensions:jpg,jpeg,png,mp4,mov'],
         'preview_mimes' => ['jpg', 'jpeg', 'png', 'mp4', 'mov'],
     ],
 ];

@@ -1,5 +1,69 @@
+import profileImageCropper from './profile-image-cropper.js';
+
 export default function postComposer(wire) {
+    const cropper = profileImageCropper(wire, {
+        uploadField: 'upload',
+        onUploadStart: editor => { editor.uploading = true; editor.postRatioLocked = true; editor.showToast('loading', 'Uploading your cropped photo...', 'Uploading photo'); },
+        onProgress: (editor, progress) => { editor.toastMessage = 'Uploading photo... ' + progress + '%'; },
+        onUploadError: editor => editor.showToast('error', 'Your photo could not be uploaded. Please try again.', 'Upload failed'),
+        onUploadEnd: editor => { editor.uploading = false; },
+        onClosed: editor => { editor.currentMedia = null; editor.processNextMedia(); },
+    });
     return {
+        ...cropper,
+        pinOpen: false,
+        pendingMedia: [],
+        currentMedia: null,
+        batchBusy: false,
+        batchTotal: 0,
+        batchPosition: 0,
+
+        selectFiles(event) {
+            const files = Array.from(event.target.files ?? []);
+            event.target.value = '';
+            this.queueFiles(files);
+        },
+
+        queueFiles(files) {
+            if (this.batchBusy || !files.length) return;
+            this.pausePreviews();
+            this.pendingMedia = files;
+            this.batchTotal = files.length;
+            this.batchPosition = 0;
+            this.batchBusy = true;
+            this.mediaError = '';
+            this.processNextMedia();
+        },
+
+        processNextMedia() {
+            if (this.disposed) return;
+            const file = this.pendingMedia.shift();
+            if (!file) {
+                this.batchBusy = false;
+                this.currentMedia = null;
+                return;
+            }
+            this.currentMedia = file;
+            this.batchPosition++;
+            if (file.size > (/\.(mp4|mov)$/i.test(file.name) ? 25 : 10) * 1024 * 1024 || !/\.(jpe?g|png|mp4|mov)$/i.test(file.name)) {
+                this.mediaError = file.name + ' was skipped. Photos: JPEG/PNG up to 10 MB. Videos: MP4/MOV up to 25 MB and 60 seconds.';
+                this.showToast('error', this.mediaError, 'File skipped');
+                this.processNextMedia();
+                return;
+            }
+            if (/\.(jpe?g|png)$/i.test(file.name)) {
+                this.chooseImage({ target: { files: [file], value: '' } }, 'post');
+            } else {
+                this.uploading = true;
+                this.progress = 0;
+                this.showToast('loading', 'Uploading video ' + this.batchPosition + ' of ' + this.batchTotal + '...', 'Uploading video');
+                wire.upload('upload', file,
+                    () => { this.uploading = false; this.processNextMedia(); },
+                    () => { this.uploading = false; this.mediaError = file.name + ' could not be uploaded.'; this.showToast('error', this.mediaError, 'Upload failed'); this.processNextMedia(); },
+                    event => { this.progress = event.detail.progress; this.toastMessage = 'Uploading video... ' + this.progress + '%'; },
+                );
+            }
+        },
         step: 'media',
         activeMedia: 0,
         mediaCount: 0,
@@ -9,10 +73,14 @@ export default function postComposer(wire) {
                 this.activeMedia = count - 1;
                 this.uploading = false;
                 this.progress = 100;
+                if (!this.batchBusy) this.showToast('success', 'Your media is ready. Continue to write your story.', 'Media added');
             }
             this.mediaCount = count;
             this.activeMedia = Math.max(0, Math.min(this.activeMedia, count - 1));
-            if (!count) this.step = 'media';
+            if (!count) {
+                this.step = 'media';
+                if (!this.batchBusy) this.postRatioLocked = false;
+            }
         },
 
         pausePreviews() {
@@ -27,7 +95,7 @@ export default function postComposer(wire) {
         },
 
         nextStep() {
-            if (!this.mediaCount || this.uploading) return;
+            if (!this.mediaCount || this.uploading || this.batchBusy) return;
             this.pausePreviews();
             this.step = 'details';
             this.$nextTick(() => this.$root.querySelector('fieldset input')?.focus());
@@ -107,23 +175,22 @@ export default function postComposer(wire) {
         },
 
         sendPhoto(file) {
-            this.mediaError = '';
-            if (file.size > 10 * 1024 * 1024) {
-                this.mediaError = 'This photo exceeds 10 MB. Choose a smaller photo.';
-                return;
-            }
-            this.uploading = true;
-            this.progress = 0;
-            wire.upload('upload', file,
-                () => { this.uploading = false; },
-                () => { this.uploading = false; this.mediaError = 'The photo could not be added. Please try again.'; },
-                event => { this.progress = event.detail.progress; },
-            );
+            this.queueFiles([file]);
         },
 
         recordOnDevice() {
             this.closeCamera();
             this.$refs.deviceVideo.click();
+        },
+
+        previewPlace(place) {
+            this.locationRequest++;
+            this.locating = false;
+            this.locationError = '';
+            this.candidate = { latitude: place.latitude, longitude: place.longitude, accuracy: null, name: place.name };
+            this.attachedPin = false;
+            wire.set('latitude', null, false);
+            wire.set('longitude', null, false);
         },
 
         locate() {
@@ -183,6 +250,8 @@ export default function postComposer(wire) {
 
         destroy() {
             this.disposed = true;
+            this.pendingMedia = [];
+            cropper.destroy.call(this);
             this.locationRequest++;
             this.closeCamera();
         },

@@ -1,6 +1,8 @@
 <?php
 
 return [
+    'places' => ['endpoint' => env('PLACE_SEARCH_ENDPOINT', 'https://photon.komoot.io/api/')],
+    'overpass' => ['endpoint' => env('OVERPASS_API_ENDPOINT', 'https://overpass-api.de/api/interpreter')],
 
     'cloudinary' => [
         'cloud_name' => env('CLOUDINARY_CLOUD_NAME'),
