@@ -4,7 +4,7 @@
         @foreach($media as $index => $item)
             <div x-show="active === {{ $index }}" @if($index > 0) x-cloak @endif>
                 @if($item['kind'] === 'image')
-                    <img src="{{ $item['url'] }}" alt="{{ $title }} — photo {{ $index + 1 }}" loading="lazy" class="aspect-[1.6] w-full object-cover">
+                    <img src="{{ $item['url'] }}" alt="{{ $title }} — photo {{ $index + 1 }}" loading="lazy" class="h-auto w-full object-contain">
                 @else
                     <video controls playsinline preload="metadata" class="aspect-[1.6] w-full bg-black object-contain" aria-label="{{ $title }} — video {{ $index + 1 }}"><source src="{{ $item['url'] }}" type="{{ $item['mime_type'] }}">Your browser cannot play this video.</video>
                     <a href="{{ $item['url'] }}" target="_blank" rel="noopener" class="block px-4 py-2 text-xs text-brand underline">Open original video</a>

@@ -103,7 +103,7 @@ test('posting limits block another comment', function () {
     $this->assertDatabaseCount('comments', 0);
 });
 
-test('deleting a post removes its comments', function () {
+test('soft deleting a post preserves its comments', function () {
     $post = commentablePost();
     $comment = $post->comments()->make(['body' => 'A memory']);
     $comment->user()->associate($post->user);
@@ -111,5 +111,6 @@ test('deleting a post removes its comments', function () {
 
     $post->delete();
 
-    $this->assertModelMissing($comment);
+    $this->assertSoftDeleted($post);
+    $this->assertModelExists($comment);
 });

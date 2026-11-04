@@ -1,7 +1,13 @@
+import pullToRefresh from './pull-to-refresh';
 import postComposer from './post-composer';
+import profileImageCropper from './profile-image-cropper';
+import coffeeMap from './coffee-map';
 
 function registerPostComposer() {
     window.Alpine?.data('postComposer', postComposer);
+    window.Alpine?.data('pullToRefresh', pullToRefresh);
+    window.Alpine?.data('profileImageCropper', profileImageCropper);
+    window.Alpine?.data('coffeeMap', coffeeMap);
 }
 document.addEventListener('alpine:init', registerPostComposer, { once: true });
 if (window.Alpine) registerPostComposer();
@@ -11,7 +17,7 @@ function syncCoffeeNavigation() {
     const section = path === '/map' ? 'map'
         : path === '/experiences/create' ? 'post'
         : path === '/budget' ? 'budget'
-        : path === '/profile' || path.startsWith('/settings') ? 'profile'
+        : path === '/profile' || path.startsWith('/profile/') || path.startsWith('/settings') ? 'profile'
         : 'discover';
 
     document.querySelectorAll('[data-coffee-navigation-link]').forEach(link => {

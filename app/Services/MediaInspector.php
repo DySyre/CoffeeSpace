@@ -9,10 +9,12 @@ class MediaInspector
 {
     public const MAX_BYTES = 10 * 1024 * 1024;
 
+    public const MAX_VIDEO_BYTES = 25 * 1024 * 1024;
+
     public function inspect(UploadedFile $file): array
     {
-        if (! $file->isValid() || $file->getSize() > self::MAX_BYTES) {
-            throw new InvalidArgumentException('Each file must be no larger than 10 MB.');
+        if (! $file->isValid()) {
+            throw new InvalidArgumentException('This file could not be uploaded. Please try again.');
         }
 
         $extension = strtolower($file->getClientOriginalExtension());
@@ -20,6 +22,11 @@ class MediaInspector
         $allowed = ['jpg' => 'image/jpeg', 'jpeg' => 'image/jpeg', 'png' => 'image/png', 'mp4' => 'video/mp4', 'mov' => 'video/quicktime'];
         if (! isset($allowed[$extension]) || $mime !== $allowed[$extension]) {
             throw new InvalidArgumentException('Upload a JPEG, PNG, MP4, or MOV file with matching contents.');
+        }
+
+        $isVideo = str_starts_with($mime, 'video/');
+        if ($file->getSize() > ($isVideo ? self::MAX_VIDEO_BYTES : self::MAX_BYTES)) {
+            throw new InvalidArgumentException($isVideo ? 'Videos must be no larger than 25 MB.' : 'Photos must be no larger than 10 MB.');
         }
 
         $metadata = ['mime_type' => $mime, 'kind' => str_starts_with($mime, 'image/') ? 'image' : 'video', 'size_bytes' => $file->getSize(), 'duration_seconds' => null];

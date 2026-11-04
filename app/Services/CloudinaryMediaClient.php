@@ -52,7 +52,7 @@ class CloudinaryMediaClient
             if (! $response->successful() || ! is_array($data) || ($data['public_id'] ?? null) !== $publicId || ($data['resource_type'] ?? null) !== $resourceType || ($data['type'] ?? null) !== 'authenticated' || empty($data['asset_id']) || ! in_array($data['format'] ?? null, ['jpg', 'jpeg', 'png', 'mp4', 'mov'], true)) {
                 throw new RuntimeException('Cloudinary did not confirm the expected asset.');
             }
-            if (! isset($data['bytes']) || $data['bytes'] > MediaInspector::MAX_BYTES || ($resourceType === 'video' && (! isset($data['duration']) || ! is_numeric($data['duration']) || $data['duration'] <= 0 || $data['duration'] > 60))) {
+            if (! isset($data['bytes']) || $data['bytes'] > ($resourceType === 'video' ? MediaInspector::MAX_VIDEO_BYTES : MediaInspector::MAX_BYTES) || ($resourceType === 'video' && (! isset($data['duration']) || ! is_numeric($data['duration']) || $data['duration'] <= 0 || $data['duration'] > 60))) {
                 throw new RuntimeException('Cloudinary returned media outside the upload limits.');
             }
 

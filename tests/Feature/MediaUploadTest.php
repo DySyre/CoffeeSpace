@@ -52,6 +52,7 @@ test('a video post stores its duration with the media record', function () {
     $video = UploadedFile::fake()->createWithContent('visit.mp4', file_get_contents(__DIR__.'/../Fixtures/video.mp4'));
 
     Livewire::actingAs($user)->test(AddExperience::class)
+        ->set('latitude', 14.7352)->set('longitude', 120.9551)
         ->set('title', 'A video visit')->set('body', 'A short café clip.')
         ->set('cafeName', 'Coffee Corner')->set('city', 'Bulacan')->set('uploads', [$video])
         ->call('save')->assertHasNoErrors();
@@ -61,3 +62,9 @@ test('a video post stores its duration with the media record', function () {
     expect((float) $media->duration_seconds)->toBe(4.0);
     Storage::disk('local')->assertExists($media->path);
 });
+
+test('videos accept exactly 25 MB and reject anything larger', function (int $kilobytes, bool $allowed) {
+    $video = UploadedFile::fake()->createWithContent('limit.mp4', file_get_contents(__DIR__.'/../Fixtures/video.mp4'))->size($kilobytes);
+    $validator = Validator::make(['upload' => $video], ['upload' => ['file', new PostMediaUpload]]);
+    expect($validator->passes())->toBe($allowed);
+})->with([[25600, true], [25601, false]]);

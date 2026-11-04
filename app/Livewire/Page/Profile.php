@@ -15,6 +15,18 @@ class Profile extends Component
 
     public string $email = '';
 
+    public string $bio = '';
+
+    public string $birthdate = '';
+
+    public bool $showActivity = true;
+
+    public bool $notifyMessagesByEmail = false;
+
+    public bool $notifyCommentsByEmail = false;
+
+    public bool $notifySavesByEmail = false;
+
     /**
      * Mount the component.
      */
@@ -22,6 +34,42 @@ class Profile extends Component
     {
         $this->name = Auth::user()->name;
         $this->email = Auth::user()->email;
+        $this->bio = Auth::user()->bio ?? User::DEFAULT_BIO;
+        $this->birthdate = Auth::user()->birthdate?->format('Y-m-d') ?? '';
+        $this->showActivity = Auth::user()->show_activity;
+        $this->notifyMessagesByEmail = Auth::user()->notify_messages_by_email;
+        $this->notifyCommentsByEmail = Auth::user()->notify_comments_by_email;
+        $this->notifySavesByEmail = Auth::user()->notify_saves_by_email;
+    }
+
+    public function updatedShowActivity(): void
+    {
+        $this->validateOnly('showActivity', ['showActivity' => ['required', 'boolean']]);
+
+        Auth::user()->show_activity = $this->showActivity;
+        Auth::user()->save();
+    }
+
+    public function updatedNotifyMessagesByEmail(): void
+    {
+        $this->saveEmailPreference('notifyMessagesByEmail', 'notify_messages_by_email');
+    }
+
+    public function updatedNotifyCommentsByEmail(): void
+    {
+        $this->saveEmailPreference('notifyCommentsByEmail', 'notify_comments_by_email');
+    }
+
+    public function updatedNotifySavesByEmail(): void
+    {
+        $this->saveEmailPreference('notifySavesByEmail', 'notify_saves_by_email');
+    }
+
+    private function saveEmailPreference(string $property, string $column): void
+    {
+        $this->validateOnly($property, [$property => ['required', 'boolean']]);
+
+        Auth::user()->forceFill([$column => $this->{$property}])->save();
     }
 
     /**
@@ -31,8 +79,14 @@ class Profile extends Component
     {
         $user = Auth::user();
 
+        if ($user->hasVerifiedEmail()) {
+            $this->email = $user->email;
+        }
+
         $validated = $this->validate([
             'name' => ['required', 'string', 'max:255'],
+            'bio' => ['nullable', 'string', 'max:160'],
+            'birthdate' => ['nullable', 'date', 'before_or_equal:today'],
 
             'email' => [
                 'required',
@@ -45,6 +99,8 @@ class Profile extends Component
         ]);
 
         $user->fill($validated);
+        $user->bio = trim($validated['bio'] ?? '');
+        $user->birthdate = $validated['birthdate'] ?: null;
 
         if ($user->isDirty('email')) {
             $user->email_verified_at = null;
@@ -71,6 +127,7 @@ class Profile extends Component
         $user->sendEmailVerificationNotification();
 
         Session::flash('status', 'verification-link-sent');
+        $this->dispatch('verification-email-sent');
     }
 
     public function render(): View

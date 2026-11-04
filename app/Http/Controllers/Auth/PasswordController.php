@@ -21,7 +21,7 @@ class PasswordController extends Controller
         $validated = $request->validate(['email' => ['required', 'string', 'email', 'max:255']]);
         Password::sendResetLink($validated);
 
-        return back()->with('status', 'A reset link will be sent if the account exists.');
+        return back()->with('status', 'If an account exists for that email, a password reset message may have been sent.');
     }
 
     public function update(Request $request): RedirectResponse
