@@ -9,7 +9,7 @@
                 <tr><td style="padding:36px;">
                     <h1 style="margin:0 0 16px;font-family:'Bricolage Grotesque Variable','Bricolage Grotesque','DM Sans',Arial,sans-serif;font-size:28px;line-height:1.2;font-weight:600;letter-spacing:-.025em;">Verify your email</h1>
                     <p style="margin:0 0 24px;color:#35271f;font-size:16px;line-height:1.7;">Hi {{ $user->name }}, confirm your email address to finish creating your CoffeeSpace account.</p>
-                    <p style="margin:0 0 24px;"><a href="{{ $url }}" style="display:inline-block;background:#805437;color:#fffaf5;text-decoration:none;padding:13px 20px;border-radius:4px;font-size:15px;font-weight:600;">Verify email address</a></p>
+                    <p style="margin:0 0 24px;"><a href="{{ $url }}" style="display:inline-block;background:#805437;color:#fffaf5;text-decoration:none;padding:13px 20px;border-radius:4px;font-size:15px;font-weight:600;">Verify email and create account</a></p>
                     <p style="margin:0;color:#79685c;font-size:13px;line-height:1.65;">This link expires in {{ config('auth.verification.expire') }} minutes. If you did not create this account, you can ignore this email. If the button does not work, copy this link into your browser:<br><a href="{{ $url }}" style="color:#805437;word-break:break-all;">{{ $url }}</a></p>
                 </td></tr>
                 @include('emails.partials.Footer')

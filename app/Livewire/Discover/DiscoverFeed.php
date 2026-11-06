@@ -155,6 +155,40 @@ class DiscoverFeed extends Component
         auth()->user()->likedPosts()->syncWithoutDetaching([$post->id]);
     }
 
+    public function reportPost(int $postId): void
+    {
+        abort_unless(auth()->check(), 401);
+
+        $user = auth()->user();
+        $post = Post::visibleTo($user)->findOrFail($postId);
+        abort_if($post->user_id === $user->id, 403);
+
+        $report = $post->reports()->firstOrCreate(
+            ['user_id' => $user->id],
+            ['reason' => 'community_guidelines'],
+        );
+
+        $this->dispatch('post-report-result',
+            title: $report->wasRecentlyCreated ? 'Report sent' : 'Already reported',
+            message: $report->wasRecentlyCreated
+                ? 'Thanks. Your report has been sent to the CoffeeSpace team.'
+                : 'You have already reported this post. The CoffeeSpace team has it for review.',
+        );
+    }
+
+    public function hidePost(int $postId): void
+    {
+        abort_unless(auth()->check(), 401);
+
+        $user = auth()->user();
+        $post = Post::visibleTo($user)->findOrFail($postId);
+        abort_if($post->user_id === $user->id, 403);
+
+        $user->hiddenPosts()->syncWithoutDetaching([$post->id]);
+        $this->refreshFeed();
+        $this->dispatch('post-hidden');
+    }
+
     public function toggleSave(int $postId): void
     {
         abort_unless(auth()->check(), 401);
@@ -182,7 +216,9 @@ class DiscoverFeed extends Component
     {
         $query = $this->searchTerm();
 
-        $stories = Post::visibleTo(auth()->user())->where('visibility', '!=', 'private')->whereNull('archived_at')
+        $viewer = auth()->user();
+        $stories = Post::visibleTo($viewer)->where('visibility', '!=', 'private')->whereNull('archived_at')
+            ->when($viewer, fn (Builder $stories) => $stories->whereDoesntHave('hiddenByUsers', fn (Builder $users) => $users->whereKey($viewer->id)))
             ->when($this->filter === 'following', fn ($stories) => auth()->check() ? $stories->whereIn('user_id', auth()->user()->following()->select('users.id')) : $stories->whereRaw('1 = 0'))
             ->when($this->filter === 'nearby', fn (Builder $stories) => $this->nearbyStories($stories))
             ->when($query !== '', fn (Builder $stories) => $this->searchStories($stories, $query));
@@ -324,7 +360,7 @@ class DiscoverFeed extends Component
             ->with(['user:id,name,profile_uuid', 'media', 'amenityMedia'])->withCount(['comments', 'likes'])->get()->keyBy('id');
         $posts = collect($postIds)->map(fn (int $id) => $loadedPosts->get($id))->filter()->values();
         $stories = $posts->take($this->visibleCount)->map(fn (Post $post) => [
-            'post_url' => $post->postUrl(), 'amenities' => $post->amenities ?? [], 'amenity_media' => $post->amenityMedia->map(fn ($item) => ['amenity_key' => $item->amenity_key, 'url' => route('post-media.show', $item)])->all(), 'visibility' => $post->visibility, 'profile_url' => $post->user->profileUrl(), 'id' => $post->id, 'name' => $post->user->name, 'handle' => $post->author_handle,
+            'post_url' => $post->postUrl(), 'amenities' => $post->amenities ?? [], 'amenity_media' => $post->amenityMedia->map(fn ($item) => ['amenity_key' => $item->amenity_key, 'url' => route('post-media.show', $item)])->all(), 'visibility' => $post->visibility, 'profile_url' => $post->user->profileUrl(), 'id' => $post->id, 'author_id' => $post->user_id, 'name' => $post->user->name, 'handle' => $post->author_handle,
             'initials' => $post->user->initials(), 'city' => $post->city,
             'time' => $post->created_at->diffForHumans(), 'cafe' => $post->cafe_name,
             'title' => $post->title, 'story' => $post->body, 'image' => $post->image_path,

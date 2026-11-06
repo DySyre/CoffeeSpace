@@ -1,4 +1,4 @@
-<div class="mx-auto max-w-[760px]" x-data="profileImageCropper($wire)">
+<div class="mx-auto max-w-[760px]" x-data="profileImageCropper($wire)" x-on:comment-report-result.window="showToast('success', $event.detail.message, $event.detail.title)">
     <article class="overflow-hidden rounded-lg border border-line bg-surface">
         <header class="flex items-center justify-between gap-4 p-4"><a href="{{ $post->user->profileUrl() }}" wire:navigate class="flex items-center gap-3"><x-user-avatar :user="$post->user"/><span class="text-sm font-semibold">{{ $post->user->name }}</span></a><button type="button" x-on:click="openProfileShare(@js($post->postUrl()), @js($post->title), 'post')" class="flex min-h-11 items-center gap-2 px-3 text-sm text-brand"><x-coffee-icon name="share"/>Share post</button></header>
         @if($post->media->count())

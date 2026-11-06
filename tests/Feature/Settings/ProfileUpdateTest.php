@@ -1,33 +1,47 @@
 <?php
 
+use App\Auth\PendingEmailVerification;
 use App\Livewire\Page\Profile;
 use App\Livewire\Settings\DeleteUserForm;
 use App\Models\User;
+use App\Notifications\EmailChangeVerificationNotification;
+use Illuminate\Support\Facades\Notification;
 use Livewire\Livewire;
 
 test('profile page is displayed', function () {
-    $this->actingAs($user = User::factory()->create());
+    $this->actingAs($user = User::factory()->create(['is_active' => true]));
 
     $this->get('/settings/profile')->assertOk();
 });
 
 test('profile information can be updated', function () {
-    $user = User::factory()->create();
+    $user = User::factory()->create(['email' => 'old@example.com']);
+    $newEmail = 'new@example.com';
+    $id = 'email-change-'.$user->id.'-'.hash('sha256', $newEmail);
+
+    Notification::fake();
 
     $this->actingAs($user);
 
     $response = Livewire::test(Profile::class)
         ->set('name', 'Test User')
-        ->set('email', 'test@example.com')
+        ->set('email', $newEmail)
         ->call('updateProfileInformation');
 
-    $response->assertHasNoErrors();
+    $response->assertHasNoErrors()
+        ->assertSet('email', 'old@example.com')
+        ->assertSet('emailChangeMessage', 'A verification link was sent to new@example.com. Your current email stays active until you confirm the new address.');
 
     $user->refresh();
 
     expect($user->name)->toEqual('Test User');
-    expect($user->email)->toEqual('test@example.com');
-    expect($user->email_verified_at)->toBeNull();
+    expect($user->email)->toEqual('old@example.com');
+    expect($user->email_verified_at)->not->toBeNull();
+
+    Notification::assertSentTo(
+        new PendingEmailVerification($id, $user->name, $newEmail),
+        EmailChangeVerificationNotification::class,
+    );
 });
 
 test('email verification status is unchanged when email address is unchanged', function () {

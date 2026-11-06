@@ -77,6 +77,11 @@ class User extends Authenticatable implements MustVerifyEmail
             && $this->last_seen_at->gte(now()->subMinutes(2));
     }
 
+    public function isAdmin(): bool
+    {
+        return $this->role === 'admin';
+    }
+
     public function activityLabel(): string
     {
         return $this->isOnline() ? 'Online now' : $this->offlineActivityLabel();
@@ -134,6 +139,11 @@ class User extends Authenticatable implements MustVerifyEmail
     public function savedPosts(): BelongsToMany
     {
         return $this->belongsToMany(Post::class, 'saved_posts')->withTimestamps();
+    }
+
+    public function hiddenPosts(): BelongsToMany
+    {
+        return $this->belongsToMany(Post::class, 'hidden_posts')->withTimestamps();
     }
 
     public function savedPlaces(): HasMany
@@ -203,6 +213,7 @@ class User extends Authenticatable implements MustVerifyEmail
             'last_seen_at' => 'datetime',
             'birthdate' => 'date:Y-m-d',
             'show_activity' => 'boolean',
+            'is_active' => 'boolean',
             'password' => 'hashed',
         ];
     }

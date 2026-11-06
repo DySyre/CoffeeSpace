@@ -2,6 +2,8 @@
 
 use App\Models\User;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Facades\URL;
 
 test('registration screen can be rendered', function () {
     $response = $this->get('/register');
@@ -22,6 +24,9 @@ test('registration refuses duplicate email and mismatched passwords', function (
 });
 
 test('new users can register', function () {
+    Notification::fake();
+
+    $email = 'test@example.com';
     $response = $this->post('/register', [
         'name' => 'Test User', 'email' => 'test@example.com',
         'password' => 'password', 'password_confirmation' => 'password',
@@ -29,8 +34,21 @@ test('new users can register', function () {
 
     $response
         ->assertSessionHasNoErrors()
-        ->assertRedirect(route('dashboard'));
+        ->assertRedirect(route('register'));
+
+    $this->assertGuest();
+    $this->assertDatabaseMissing('users', ['email' => $email]);
+
+    $verificationUrl = URL::temporarySignedRoute(
+        'verification.verify',
+        now()->addMinutes(5),
+        ['id' => hash('sha256', $email), 'hash' => sha1($email)]
+    );
+
+    $this->get($verificationUrl)->assertRedirect(route('dashboard', absolute: false).'?verified=1');
 
     $this->assertAuthenticated();
-    expect(Hash::check('password', User::where('email', 'test@example.com')->sole()->password))->toBeTrue();
+    $user = User::where('email', $email)->sole();
+    expect(Hash::check('password', $user->password))->toBeTrue()
+        ->and($user->hasVerifiedEmail())->toBeTrue();
 });

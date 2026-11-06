@@ -3,7 +3,7 @@
         @csrf
         <x-auth-field name="name" label="Name" autocomplete="name" autofocus/>
         <x-auth-field name="email" label="Email" type="email" autocomplete="email"/>
-        <p class="-mt-2 text-xs leading-5 text-muted">We’ll send a verification link to this address. You’ll need to verify your email before you can use your account.</p>
+        <p class="-mt-2 text-xs leading-5 text-muted">We will email you a verification link. Your account is created only after you click it.</p>
         <x-auth-field name="password" label="Password" type="password" autocomplete="new-password"/>
         <x-auth-field name="password_confirmation" label="Confirm password" type="password" autocomplete="new-password"/>
         <button type="submit" class="auth-submit">Create account</button>

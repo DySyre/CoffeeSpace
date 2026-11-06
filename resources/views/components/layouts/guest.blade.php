@@ -1,4 +1,4 @@
-@props(['title' => 'CoffeeSpace'])
+@props(['title' => 'CoffeeSpace', 'centered' => false, 'showBackLink' => true])
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -14,11 +14,11 @@
         <a href="{{ route('home') }}" aria-label="CoffeeSpace home" class="mb-12"><x-brand/></a>
 
         <section class="w-full max-w-[340px]">
-            <h1 class="mb-7 font-display text-3xl">{{ $title }}</h1>
+            <h1 @class(['mb-7 font-display text-3xl', 'text-center' => $centered])>{{ $title }}</h1>
             @if(session('status'))<p role="status" class="mb-5 border-l-2 border-brand bg-soft p-3 text-sm">{{ session('status') }}</p>@endif
             {{ $slot }}
         </section>
-        <a href="{{ route('home') }}" class="mt-10 text-xs text-muted hover:text-brand">← Back to Discover</a>
+        @if($showBackLink)<a href="{{ route('home') }}" class="mt-10 text-xs text-muted hover:text-brand">← Back to Discover</a>@endif
     </main>
 </body>
 </html>

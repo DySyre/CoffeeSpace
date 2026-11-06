@@ -49,6 +49,11 @@ class Post extends Model
         return $this->hasMany(Comment::class);
     }
 
+    public function reports(): HasMany
+    {
+        return $this->hasMany(PostReport::class);
+    }
+
     public function likes(): BelongsToMany
     {
         return $this->belongsToMany(User::class, 'post_likes')->withTimestamps();
@@ -57,6 +62,11 @@ class Post extends Model
     public function savedBy(): BelongsToMany
     {
         return $this->belongsToMany(User::class, 'saved_posts')->withTimestamps();
+    }
+
+    public function hiddenByUsers(): BelongsToMany
+    {
+        return $this->belongsToMany(User::class, 'hidden_posts')->withTimestamps();
     }
 
     public function media(): HasMany

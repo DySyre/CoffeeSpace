@@ -55,7 +55,19 @@
                 @forelse($stories as $story)
                     <article wire:key="story-{{ $story['id'] }}" x-data="{ savedLine: false }" class="relative overflow-hidden rounded-lg border border-line bg-surface">
                         <span aria-hidden="true" x-bind:class="savedLine ? 'saved-post-line-active' : ''" class="pointer-events-none absolute top-0 left-0 z-10 h-1 w-full origin-left scale-x-0 bg-[#f4c542]"></span>
-                        <div class="flex items-center gap-3 px-5 py-4"><a href="{{ $story['profile_url'] }}" wire:navigate aria-label="View {{ $story['name'] }} profile" class="avatar {{ $story['id'] === 2 ? 'bg-[#d9c5ac]' : '' }}">{{ $story['initials'] }}</a><div><a href="{{ $story['profile_url'] }}" wire:navigate class="text-sm font-semibold hover:text-brand">{{ $story['handle'] }}</a><p class="mt-1 text-xs text-muted">{{ $story['city'] }} <span class="px-1">·</span> {{ $story['time'] }}</p>@if($story['visibility'] === 'followers')<span class="mt-1 block text-xs font-medium text-brand">Followers only</span>@endif</div></div>
+                        <div class="flex items-center gap-3 px-5 py-4"><a href="{{ $story['profile_url'] }}" wire:navigate aria-label="View {{ $story['name'] }} profile" class="avatar {{ $story['id'] === 2 ? 'bg-[#d9c5ac]' : '' }}">{{ $story['initials'] }}</a><div class="min-w-0 flex-1"><a href="{{ $story['profile_url'] }}" wire:navigate class="text-sm font-semibold hover:text-brand">{{ $story['handle'] }}</a><p class="mt-1 text-xs text-muted">{{ $story['city'] }} <span class="px-1">·</span> {{ $story['time'] }}</p>@if($story['visibility'] === 'followers')<span class="mt-1 block text-xs font-medium text-brand">Followers only</span>@endif</div>
+                            @auth
+                                @if(auth()->id() !== $story['author_id'])
+                                    <div class="relative shrink-0" x-data="{ reportMenuOpen: false }" x-on:click.outside="reportMenuOpen = false" x-on:keydown.escape.stop="reportMenuOpen = false; $refs.reportMenuButton.focus()">
+                                        <button type="button" x-ref="reportMenuButton" x-on:click="reportMenuOpen = !reportMenuOpen" x-bind:aria-expanded="reportMenuOpen" aria-label="Post options" class="flex size-11 items-center justify-center rounded-sm text-muted transition hover:bg-soft hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"><x-coffee-icon name="more" class="size-5"/></button>
+                                        <div x-cloak x-show="reportMenuOpen" class="absolute top-full right-0 z-20 mt-1 w-48 rounded-sm border border-line bg-surface p-1 shadow-lg">
+                                            <button type="button" x-on:click="reportMenuOpen = false" wire:click="reportPost({{ $story['id'] }})" wire:confirm="Send this post to CoffeeSpace admins for review?" class="flex min-h-11 w-full items-center gap-2 rounded-sm px-3 text-left text-sm text-ink hover:bg-soft focus-visible:outline-2 focus-visible:outline-brand"><x-coffee-icon name="warning" class="size-4"/>Report post</button>
+                                            <button type="button" x-on:click="reportMenuOpen = false" wire:click="hidePost({{ $story['id'] }})" wire:confirm="Hide this post from your Discover feed?" class="flex min-h-11 w-full items-center gap-2 rounded-sm px-3 text-left text-sm text-ink hover:bg-soft focus-visible:outline-2 focus-visible:outline-brand"><x-coffee-icon name="eye-off" class="size-4"/>Hide post</button>
+                                        </div>
+                                    </div>
+                                @endif
+                            @endauth
+                        </div>
                         @if(count($story['media']))
                             <x-post-gallery :media="$story['media']" :title="$story['title']" :like-post-id="auth()->check() ? $story['id'] : null" />
                         @elseif($story['image'])
