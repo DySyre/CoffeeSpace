@@ -1,7 +1,9 @@
 <?php
 
 use App\Http\Controllers\PostMediaController;
+use App\Http\Controllers\NotificationRedirectController;
 use App\Http\Controllers\ProfilePhotoController;
+use App\Http\Controllers\ActivityPresenceController;
 use App\Livewire\Page\Account;
 use App\Livewire\Page\AddExperience;
 use App\Livewire\Page\Appearance;
@@ -31,6 +33,14 @@ Route::get('/dashboard', Discover::class)
     ->name('dashboard');
 
 Route::middleware(['auth'])->group(function () {
+    Route::post('/activity/last-seen', ActivityPresenceController::class)
+        ->middleware('throttle:12,1')
+        ->name('activity.last-seen');
+    Route::get('/notifications/{type}/{identifier}/{user}', NotificationRedirectController::class)
+        ->whereIn('type', ['activity', 'plan'])
+        ->whereNumber('user')
+        ->middleware('signed:relative')
+        ->name('notifications.redirect');
     Route::get('/ChatPage', ChatPage::class)->name('chat.index');
     Route::get('/profile/photo', ProfilePhotoController::class)->name('profile.photo');
     Route::get('/profile/cover', ProfilePhotoController::class)->defaults('kind', 'cover')->name('profile.cover');

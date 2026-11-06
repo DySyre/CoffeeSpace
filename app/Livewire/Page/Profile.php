@@ -32,14 +32,17 @@ class Profile extends Component
      */
     public function mount(): void
     {
-        $this->name = Auth::user()->name;
-        $this->email = Auth::user()->email;
-        $this->bio = Auth::user()->bio ?? User::DEFAULT_BIO;
-        $this->birthdate = Auth::user()->birthdate?->format('Y-m-d') ?? '';
-        $this->showActivity = Auth::user()->show_activity;
-        $this->notifyMessagesByEmail = Auth::user()->notify_messages_by_email;
-        $this->notifyCommentsByEmail = Auth::user()->notify_comments_by_email;
-        $this->notifySavesByEmail = Auth::user()->notify_saves_by_email;
+        $user = Auth::user();
+        $notificationSettings = $user->notificationSettings;
+
+        $this->name = $user->name;
+        $this->email = $user->email;
+        $this->bio = $user->bio ?? User::DEFAULT_BIO;
+        $this->birthdate = $user->birthdate?->format('Y-m-d') ?? '';
+        $this->showActivity = $user->show_activity;
+        $this->notifyMessagesByEmail = $notificationSettings->notify_messages_by_email;
+        $this->notifyCommentsByEmail = $notificationSettings->notify_comments_by_email;
+        $this->notifySavesByEmail = $notificationSettings->notify_saves_by_email;
     }
 
     public function updatedShowActivity(): void
@@ -48,6 +51,7 @@ class Profile extends Component
 
         Auth::user()->show_activity = $this->showActivity;
         Auth::user()->save();
+        $this->dispatch('presence-preference-updated', profileUuid: Auth::user()->profile_uuid, showActivity: $this->showActivity);
     }
 
     public function updatedNotifyMessagesByEmail(): void
@@ -69,7 +73,10 @@ class Profile extends Component
     {
         $this->validateOnly($property, [$property => ['required', 'boolean']]);
 
-        Auth::user()->forceFill([$column => $this->{$property}])->save();
+        $user = Auth::user();
+        $user->notificationSettings()->updateOrCreate([], [
+            $column => $this->{$property},
+        ]);
     }
 
     /**

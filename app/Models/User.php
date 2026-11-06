@@ -9,6 +9,7 @@ use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Str;
@@ -27,6 +28,11 @@ class User extends Authenticatable implements MustVerifyEmail
     public function profileUrl(): string
     {
         return route('profile.show', ['user' => $this->profile_uuid]);
+    }
+
+    public function getAuthIdentifierForBroadcasting(): string
+    {
+        return hash_hmac('sha256', (string) $this->getAuthIdentifier(), (string) config('app.key'));
     }
 
     public function sendEmailVerificationNotification(): void
@@ -68,10 +74,15 @@ class User extends Authenticatable implements MustVerifyEmail
     {
         return (bool) $this->show_activity
             && $this->last_seen_at !== null
-            && $this->last_seen_at->gte(now()->subMinutes(5));
+            && $this->last_seen_at->gte(now()->subMinutes(2));
     }
 
     public function activityLabel(): string
+    {
+        return $this->isOnline() ? 'Online now' : $this->offlineActivityLabel();
+    }
+
+    public function offlineActivityLabel(): string
     {
         if (! $this->show_activity) {
             return 'Activity status hidden';
@@ -81,7 +92,7 @@ class User extends Authenticatable implements MustVerifyEmail
             return 'Offline';
         }
 
-        return $this->isOnline() ? 'Online now' : 'Last seen '.$this->last_seen_at->diffForHumans();
+        return 'Last seen '.$this->last_seen_at->diffForHumans();
     }
 
     public function coverPhotoUrl(): ?string
@@ -104,6 +115,15 @@ class User extends Authenticatable implements MustVerifyEmail
     public function comments(): HasMany
     {
         return $this->hasMany(Comment::class);
+    }
+
+    public function notificationSettings(): HasOne
+    {
+        return $this->hasOne(UserNotificationSetting::class)->withDefault([
+            'notify_messages_by_email' => false,
+            'notify_comments_by_email' => false,
+            'notify_saves_by_email' => false,
+        ]);
     }
 
     public function likedPosts(): BelongsToMany
@@ -167,9 +187,6 @@ class User extends Authenticatable implements MustVerifyEmail
 
     protected $attributes = [
         'show_activity' => true,
-        'notify_messages_by_email' => false,
-        'notify_comments_by_email' => false,
-        'notify_saves_by_email' => false,
     ];
 
     /**
@@ -186,9 +203,6 @@ class User extends Authenticatable implements MustVerifyEmail
             'last_seen_at' => 'datetime',
             'birthdate' => 'date:Y-m-d',
             'show_activity' => 'boolean',
-            'notify_messages_by_email' => 'boolean',
-            'notify_comments_by_email' => 'boolean',
-            'notify_saves_by_email' => 'boolean',
             'password' => 'hashed',
         ];
     }

@@ -2,12 +2,16 @@ import pullToRefresh from './pull-to-refresh';
 import postComposer from './post-composer';
 import profileImageCropper from './profile-image-cropper';
 import coffeeMap from './coffee-map';
+import chatRealtime from './chat-realtime';
+import 'skullet/element';
+import 'skullet/styles.css';
 
 function registerPostComposer() {
     window.Alpine?.data('postComposer', postComposer);
     window.Alpine?.data('pullToRefresh', pullToRefresh);
     window.Alpine?.data('profileImageCropper', profileImageCropper);
     window.Alpine?.data('coffeeMap', coffeeMap);
+    window.Alpine?.data('chatRealtime', chatRealtime);
 }
 document.addEventListener('alpine:init', registerPostComposer, { once: true });
 if (window.Alpine) registerPostComposer();
@@ -54,3 +58,12 @@ document.addEventListener('submit', event => {
     if (query) url.searchParams.set('search', String(query));
     window.Livewire.navigate(url.href);
 });
+
+/**
+ * Echo exposes an expressive API for subscribing to channels and listening
+ * for events that are broadcast by Laravel. Echo and event broadcasting
+ * allow your team to quickly build robust real-time web applications.
+ */
+
+import './echo';
+import './realtime-presence';

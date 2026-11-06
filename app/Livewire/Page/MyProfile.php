@@ -2,10 +2,12 @@
 
 namespace App\Livewire\Page;
 
+use App\Models\Conversation;
 use App\Models\Post;
 use App\Models\User;
 use App\Rules\PostMediaUpload;
 use App\Services\CloudinaryMediaClient;
+use App\Services\MediaInspector;
 use App\Services\PostMediaStorage;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\DB;
@@ -32,6 +34,24 @@ class MyProfile extends Component
     public $photo = null;
 
     public $cover = null;
+
+    #[Locked]
+    public ?int $editingPostId = null;
+
+    public string $editTitle = '';
+
+    public string $editCafeName = '';
+
+    public string $editCity = '';
+
+    public string $editBody = '';
+
+    public string $editVisibility = 'public';
+
+    #[Locked]
+    public array $removedMediaIds = [];
+
+    public array $editUploads = [];
 
     public function mount(User $user): void
     {
@@ -124,6 +144,127 @@ class MyProfile extends Component
         $this->dispatch('post-managed', message: 'Post restored.');
     }
 
+    public function editPost(int $postId): void
+    {
+        $post = $this->ownedPost($postId);
+        abort_if($post->trashed(), 404);
+
+        $this->editingPostId = $post->id;
+        $this->editTitle = $post->title;
+        $this->editCafeName = $post->cafe_name;
+        $this->editCity = $post->city;
+        $this->editBody = $post->body;
+        $this->editVisibility = $post->visibility;
+        $this->removedMediaIds = [];
+        $this->reset('editUploads');
+        $this->resetValidation();
+        $this->dispatch('post-edit-opened');
+    }
+
+    public function toggleRemoveExistingMedia(int $mediaId): void
+    {
+        abort_unless($this->editingPostId !== null, 404);
+        $post = $this->ownedPost($this->editingPostId);
+        abort_if($post->trashed(), 404);
+        abort_unless($post->media()->whereKey($mediaId)->exists(), 404);
+
+        if (in_array($mediaId, $this->removedMediaIds, true)) {
+            $this->removedMediaIds = array_values(array_filter(
+                $this->removedMediaIds,
+                fn (int $removedId) => $removedId !== $mediaId,
+            ));
+
+            return;
+        }
+
+        $this->removedMediaIds[] = $mediaId;
+    }
+
+    public function cancelEditPost(): void
+    {
+        $this->authorizeOwner();
+        $this->editingPostId = null;
+        $this->reset('editTitle', 'editCafeName', 'editCity', 'editBody', 'editVisibility', 'removedMediaIds', 'editUploads');
+        $this->resetValidation();
+        $this->dispatch('post-edit-closed');
+    }
+
+    public function savePostEdits(MediaInspector $inspector, PostMediaStorage $storage): void
+    {
+        abort_unless($this->editingPostId !== null, 404);
+        $post = $this->ownedPost($this->editingPostId);
+        abort_if($post->trashed(), 404);
+
+        $this->editTitle = trim($this->editTitle);
+        $this->editCafeName = trim($this->editCafeName);
+        $this->editCity = trim($this->editCity);
+        $this->editBody = trim($this->editBody);
+        $validated = $this->validate([
+            'editTitle' => ['required', 'string', 'max:160'],
+            'editCafeName' => ['required', 'string', 'max:255'],
+            'editCity' => ['required', 'string', 'max:255'],
+            'editBody' => ['required', 'string', 'max:3000'],
+            'editVisibility' => ['required', Rule::in(['public', 'followers', 'private'])],
+            'editUploads' => ['array'],
+            'editUploads.*' => ['required', 'file', new PostMediaUpload],
+        ]);
+
+        $removeIds = array_values(array_unique($this->removedMediaIds));
+        $mediaToRemove = $removeIds ? $post->media()->whereIn('id', $removeIds)->get() : collect();
+        abort_unless($mediaToRemove->count() === count($removeIds), 404);
+
+        $remainingMediaCount = $post->media()->when($removeIds, fn ($media) => $media->whereNotIn('id', $removeIds))->count();
+        $uploads = $validated['editUploads'] ?? [];
+        if ($remainingMediaCount + count($uploads) === 0 && ! $post->image_path) {
+            throw ValidationException::withMessages(['editUploads' => 'Keep at least one photo or video on the post.']);
+        }
+
+        $storedMedia = [];
+        $storedAssets = [];
+        try {
+            foreach ($uploads as $file) {
+                $metadata = $inspector->inspect($file);
+                $asset = $storage->store($file, $post, $metadata);
+                $storedAssets[] = $asset;
+                $storedMedia[] = [...$metadata, ...$asset];
+            }
+
+            $removedAssets = [];
+            DB::transaction(function () use ($post, $validated, $removeIds, $storedMedia, &$removedAssets) {
+                $post->fill([
+                    'title' => $validated['editTitle'],
+                    'cafe_name' => $validated['editCafeName'],
+                    'city' => $validated['editCity'],
+                    'body' => $validated['editBody'],
+                    'visibility' => $validated['editVisibility'],
+                ])->save();
+
+                if ($removeIds) {
+                    $removed = $post->media()->whereIn('id', $removeIds)->get();
+                    $removedAssets = $removed->map(fn ($media) => $media->getAttributes())->all();
+                    $post->media()->whereIn('id', $removeIds)->delete();
+                }
+
+                $position = (int) ($post->media()->max('position') ?? -1) + 1;
+                foreach ($storedMedia as $media) {
+                    $post->media()->create([...$media, 'position' => $position++]);
+                }
+            });
+        } catch (Throwable $exception) {
+            $storage->remove($storedAssets);
+            report($exception);
+            $this->addError('editUploads', 'Your post could not be updated. Please try again.');
+
+            return;
+        }
+
+        $storage->remove($removedAssets);
+        $this->editingPostId = null;
+        $this->reset('editTitle', 'editCafeName', 'editCity', 'editBody', 'editVisibility', 'removedMediaIds', 'editUploads');
+        $this->resetValidation();
+        $this->dispatch('post-managed', message: 'Post updated.');
+    }
+
     public function updatedPostFilter(): void
     {
         $this->validateOnly('postFilter', ['postFilter' => ['required', Rule::in(['active', 'archived', 'trash'])]]);
@@ -200,6 +341,16 @@ class MyProfile extends Component
         $blockedByViewer = $viewer && $viewer->hasBlocked($user);
         $blockedViewer = $viewer && $user->hasBlocked($viewer);
         abort_if(! $isOwner && $blockedViewer, 404);
+        $existingConversationUuid = null;
+        if ($viewer && ! $isOwner && ! $blockedByViewer && ! $blockedViewer) {
+            $existingConversationUuid = Conversation::query()
+                ->where('user_one_id', min($viewer->id, $user->id))
+                ->where('user_two_id', max($viewer->id, $user->id))
+                ->whereDoesntHave('userSettings', fn ($settings) => $settings
+                    ->where('user_id', $viewer->id)
+                    ->whereNotNull('deleted_at'))
+                ->value('conversation_uuid');
+        }
         $activePosts = $user->posts()->whereNull('archived_at')->when(! $isOwner, fn ($query) => $query->visibleTo(auth()->user()));
         if ($blockedByViewer) {
             $activePosts->whereRaw('1 = 0');
@@ -213,9 +364,16 @@ class MyProfile extends Component
             $posts = $user->posts()->onlyTrashed();
         }
         $places = (clone $activePosts)->whereNotNull('latitude')->whereNotNull('longitude')->select('cafe_name', 'city')->distinct();
+        $editingPost = null;
+        if ($isOwner && $this->editingPostId !== null) {
+            $editingPost = $this->ownedPost($this->editingPostId)->load(['media', 'amenityMedia']);
+            abort_if($editingPost->trashed(), 404);
+        }
 
         return view('livewire.page.MyProfile', [
             'user' => $user,
+            'editingPost' => $editingPost,
+            'existingConversationUuid' => $existingConversationUuid,
             'isOwner' => $isOwner,
             'blockedByViewer' => (bool) $blockedByViewer,
             'blockedViewer' => (bool) $blockedViewer,

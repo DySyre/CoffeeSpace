@@ -6,7 +6,7 @@
     <meta name="description" content="Find your next favorite café. CoffeeSpace is your space for coffee stories, cozy corners, and everyday discoveries." />
     @livewireStyles
 </head>
-<body class="coffee-app antialiased">
+<body class="coffee-app antialiased" @auth data-profile-uuid="{{ auth()->user()->profile_uuid }}" data-presence-url="{{ route('activity.last-seen', [], false) }}" @endauth>
 @php
     $viewerKey = auth()->check() ? auth()->id().'-'.md5(auth()->user()->name.(auth()->user()->profile_photo['path'] ?? '')) : 'guest';
     $navigation = [
@@ -19,7 +19,6 @@
 @endphp
 <a href="#main-content" class="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:rounded-sm focus:bg-white focus:p-4 focus:text-stone-900">Skip to content</a>
 
-@persist('coffee-sidebar-'.$viewerKey)
 <aside class="fixed inset-y-0 left-0 z-30 hidden w-60 flex-col border-r border-line bg-surface px-6 py-9 lg:flex xl:w-64">
     <a href="{{ route('home') }}" wire:navigate aria-label="CoffeeSpace home"><x-brand/></a>
     <div class="mt-12"></div>
@@ -44,10 +43,8 @@
         @endauth
     </div>
 </aside>
-@endpersist
 <div class="lg:ml-60 xl:ml-64">
     <div @class(['sticky top-0 z-20', 'hidden lg:block' => $section === 'post'])>
-    @persist('coffee-header-'.$viewerKey)
     <header x-data="{ searchOpen: false, isMobile: window.matchMedia('(max-width: 639px)').matches }" x-on:resize.window="isMobile = window.matchMedia('(max-width: 639px)').matches; if (!isMobile) searchOpen = false" x-on:livewire:navigating.window="searchOpen = false" x-on:keydown.escape="if (searchOpen) { searchOpen = false; $nextTick(() => $refs.searchTrigger.focus()); }" class="flex h-20 items-center justify-between gap-4 border-b border-line bg-page/95 px-5 backdrop-blur-md sm:px-9 xl:px-12">
         <a href="{{ route('home') }}" wire:navigate aria-label="CoffeeSpace home" x-bind:class="searchOpen ? 'max-sm:hidden' : ''" class="flex items-center gap-2 font-display text-lg font-bold text-brand lg:hidden"><x-brand class="max-sm:[&_.brand-wordmark]:hidden"/></a>
         <form data-coffee-search action="{{ route('home') }}" method="get" role="search" x-bind:class="searchOpen ? 'max-sm:w-full max-sm:max-w-full max-sm:flex-1 max-sm:translate-x-0 max-sm:opacity-100' : 'max-sm:w-0 max-sm:max-w-0 max-sm:flex-none max-sm:translate-x-2 max-sm:opacity-0 max-sm:px-0 max-sm:border-transparent'" x-bind:inert="isMobile && !searchOpen" x-bind:aria-hidden="isMobile && !searchOpen" class="flex min-w-0 flex-1 items-center gap-2 overflow-hidden rounded-sm border border-line bg-surface px-3 py-2.5 transition-all duration-400 ease-out motion-reduce:transition-none sm:max-w-sm sm:gap-3 sm:px-4 sm:focus-within:max-w-3xl">
@@ -60,7 +57,8 @@
                 <span x-cloak x-show="searchOpen" x-transition:enter="transition ease-out duration-400" x-transition:enter-start="scale-75 rotate-45 opacity-0" x-transition:enter-end="scale-100 rotate-0 opacity-100" x-transition:leave="transition ease-in duration-300" x-transition:leave-start="scale-100 rotate-0 opacity-100" x-transition:leave-end="scale-75 -rotate-45 opacity-0" aria-hidden="true" class="text-xl leading-none">&times;</span>
             </button>
             @auth
-                <a href="{{ route('chat.index') }}" wire:navigate x-data="{ inboxPopping: false }" x-on:click="inboxPopping = true; setTimeout(() => inboxPopping = false, 360)" x-bind:class="searchOpen ? 'max-sm:hidden' : ''" aria-label="Open inbox" title="Inbox" class="flex size-10 shrink-0 items-center justify-center rounded-sm border border-line text-brand hover:bg-soft"><x-coffee-icon name="comment" x-bind:class="inboxPopping ? 'inbox-pop' : ''"/></a>
+                <div x-bind:class="searchOpen ? 'max-sm:hidden' : ''"><livewire:components.chat-inbox-link /></div>
+                <div x-bind:class="searchOpen ? 'max-sm:hidden' : ''"><livewire:components.notification-menu /></div>
             @endauth
             @auth
                 <a href="{{ (auth()->check() ? auth()->user()->profileUrl() : route('coffee.profile')) }}" wire:navigate aria-label="My profile" class="hidden lg:block"><x-user-avatar :user="auth()->user()"/></a>
@@ -75,7 +73,6 @@
             @else <a href="{{ route('login') }}" x-bind:class="searchOpen ? 'max-sm:hidden' : ''" class="text-xs font-semibold text-brand">Log in</a><a href="{{ route('register') }}" class="hidden rounded-sm bg-brand px-4 py-2.5 text-xs font-semibold text-on-brand sm:block">Sign up</a> @endauth
         </div>
     </header>
-    @endpersist
     </div>
     <main id="main-content" @class(['mx-auto max-w-[1400px] lg:pb-12 lg:px-9 xl:px-12', 'px-4 pt-8 pb-28 sm:px-9' => $section !== 'post', 'lg:pt-8' => $section === 'post'])>{{ $slot }}</main>
 </div>

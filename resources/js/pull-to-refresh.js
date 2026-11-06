@@ -46,7 +46,7 @@ export default function pullToRefresh(wire) {
             if (this.refreshing) return;
             this.refreshing = true;
             this.refreshError = '';
-            try { await wire.$refresh(); }
+            try { await wire.refreshFeed(); }
             catch { this.refreshError = 'The feed could not refresh. Pull down to try again.'; }
             finally { this.refreshing = false; this.pullDistance = 0; }
         },

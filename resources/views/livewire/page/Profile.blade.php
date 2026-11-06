@@ -67,7 +67,7 @@
             <div class="mt-4 flex items-center justify-between gap-6">
                 <div>
                     <p class="text-sm font-medium text-zinc-900 dark:text-white">Online status and last seen</p>
-                    <p class="mt-1 text-xs text-zinc-600 dark:text-zinc-400">When hidden, your activity status is not shown on your profile or in chats.</p>
+                    <p class="mt-1 text-xs text-zinc-600 dark:text-zinc-400">When hidden, your activity status is not shown on your profile or in chats. This is separate from email message notifications.</p>
                 </div>
                 <flux:switch wire:model.live="showActivity" aria-label="Show online status and last seen" />
             </div>
