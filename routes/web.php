@@ -1,11 +1,12 @@
 <?php
 
-use App\Http\Controllers\PostMediaController;
-use App\Http\Controllers\NotificationRedirectController;
-use App\Http\Controllers\ProfilePhotoController;
 use App\Http\Controllers\ActivityPresenceController;
+use App\Http\Controllers\NotificationRedirectController;
+use App\Http\Controllers\PostMediaController;
+use App\Http\Controllers\ProfilePhotoController;
 use App\Livewire\Page\Account;
 use App\Livewire\Page\AddExperience;
+use App\Livewire\Page\Admin;
 use App\Livewire\Page\Appearance;
 use App\Livewire\Page\ChatPage;
 use App\Livewire\Page\CoffeeBudget;
@@ -48,6 +49,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/budget', CoffeeBudget::class)->name('coffee.budget');
 
     Route::get('/profile', fn () => redirect(auth()->user()->profileUrl()))->name('coffee.profile');
+    Route::get('/admin', Admin::class)->middleware(['can:access-admin', 'verified'])->name('admin.index');
     Route::redirect('/settings', '/settings/profile');
 
     Route::prefix('settings')->name('settings.')->group(function () {

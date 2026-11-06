@@ -9,10 +9,11 @@
             <p class="-mt-4 text-xs text-zinc-600 dark:text-zinc-400">Share a little about your coffee journey. Up to 160 characters.</p>
 
             <div>
-                <flux:input wire:model="email" label="{{ __('Email') }}" type="email" name="email" required autocomplete="email" :disabled="auth()->user()->hasVerifiedEmail()" />
-                @if(auth()->user()->hasVerifiedEmail())
-                    <p class="mt-2 text-xs text-zinc-600 dark:text-zinc-400">This email address is verified and cannot be changed.</p>
-                @endif
+                <flux:input wire:model="email" label="{{ __('Email') }}" type="email" name="email" required autocomplete="email" />
+                <p class="mt-2 text-xs text-zinc-600 dark:text-zinc-400">Changing your email sends a verification link. Your current address stays active until you confirm the new one.</p>
+                @if($emailChangeMessage)<p role="status" class="mt-2 text-sm text-brand">{{ $emailChangeMessage }}</p>@endif
+                @if(session('status') === 'email-address-verified')<p role="status" class="mt-2 text-sm text-brand">Your new email address is verified and saved.</p>@endif
+                @error('email')<p role="alert" class="mt-2 text-sm text-red-600">{{ $message }}</p>@enderror
 
                 @if (auth()->user() instanceof \Illuminate\Contracts\Auth\MustVerifyEmail &&! auth()->user()->hasVerifiedEmail())
                     <div>

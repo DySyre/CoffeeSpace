@@ -4,6 +4,7 @@
         'coffee' => 'coffee',
         'check' => 'circle-check',
         'warning' => 'triangle-alert',
+        'eye-off' => 'eye-off',
         'more' => 'ellipsis',
         'follow' => 'user-round-plus',
         'block' => 'ban',

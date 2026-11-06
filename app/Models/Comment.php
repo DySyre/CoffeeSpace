@@ -29,4 +29,9 @@ class Comment extends Model
     {
         return $this->hasMany(self::class, 'parent_comment_id')->orderBy('id');
     }
+
+    public function reports(): HasMany
+    {
+        return $this->hasMany(CommentReport::class);
+    }
 }

@@ -92,6 +92,27 @@ class PostComments extends Component
         $this->reset('replyBody', 'replyToCommentId');
     }
 
+    public function reportComment(int $commentId): void
+    {
+        abort_unless(auth()->check(), 401);
+
+        $user = auth()->user();
+        $comment = $this->viewablePost()->comments()->with('user')->findOrFail($commentId);
+        abort_if($comment->user_id === $user->id, 403);
+
+        $report = $comment->reports()->firstOrCreate(
+            ['user_id' => $user->id],
+            ['reason' => 'community_guidelines'],
+        );
+
+        $this->dispatch('comment-report-result',
+            title: $report->wasRecentlyCreated ? 'Report sent' : 'Already reported',
+            message: $report->wasRecentlyCreated
+                ? 'Thanks. Your comment report has been sent to the CoffeeSpace team.'
+                : 'You have already reported this comment. The CoffeeSpace team has it for review.',
+        );
+    }
+
     public function reply(): void
     {
         abort_unless(auth()->check(), 401);

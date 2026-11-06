@@ -2,18 +2,26 @@
 
 namespace App\Livewire\Page;
 
+use App\Auth\PendingEmailVerification;
 use App\Models\User;
+use App\Notifications\EmailChangeVerificationNotification;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Session;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Livewire\Component;
+use Throwable;
 
 class Profile extends Component
 {
     public string $name = '';
 
     public string $email = '';
+
+    public string $emailChangeMessage = '';
 
     public string $bio = '';
 
@@ -86,9 +94,7 @@ class Profile extends Component
     {
         $user = Auth::user();
 
-        if ($user->hasVerifiedEmail()) {
-            $this->email = $user->email;
-        }
+        $this->email = Str::lower(trim($this->email));
 
         $validated = $this->validate([
             'name' => ['required', 'string', 'max:255'],
@@ -96,6 +102,7 @@ class Profile extends Component
             'birthdate' => ['nullable', 'date', 'before_or_equal:today'],
 
             'email' => [
+                'bail',
                 'required',
                 'string',
                 'lowercase',
@@ -105,17 +112,60 @@ class Profile extends Component
             ],
         ]);
 
+        $requestedEmail = $validated['email'];
+        unset($validated['email']);
+
         $user->fill($validated);
         $user->bio = trim($validated['bio'] ?? '');
         $user->birthdate = $validated['birthdate'] ?: null;
-
-        if ($user->isDirty('email')) {
-            $user->email_verified_at = null;
-        }
-
         $user->save();
 
+        if ($requestedEmail !== $user->email) {
+            $this->sendEmailChangeVerification($user, $requestedEmail);
+        }
+
+        $this->email = $user->email;
+
         $this->dispatch('profile-updated', name: $user->name);
+    }
+
+    private function sendEmailChangeVerification(User $user, string $email): void
+    {
+        $userCacheKey = 'pending-email-change-user:'.$user->id;
+        $previousId = Cache::get($userCacheKey);
+
+        if (is_string($previousId)) {
+            Cache::forget('pending-email-change:'.$previousId);
+        }
+
+        $id = 'email-change-'.$user->id.'-'.hash('sha256', $email);
+        $cacheKey = 'pending-email-change:'.$id;
+        $expiresAt = now()->addMinutes((int) config('auth.verification.expire', 60));
+
+        Cache::put($cacheKey, Crypt::encryptString(json_encode([
+            'user_id' => $user->id,
+            'email' => $email,
+        ], JSON_THROW_ON_ERROR)), $expiresAt);
+        Cache::put($userCacheKey, $id, $expiresAt);
+
+        try {
+            (new PendingEmailVerification($id, $user->name, $email))
+                ->notify(new EmailChangeVerificationNotification);
+        } catch (Throwable $exception) {
+            Cache::forget($cacheKey);
+            Cache::forget($userCacheKey);
+            report($exception);
+            $this->addError('email', 'We could not send the verification link. Please try again shortly.');
+
+            return;
+        }
+
+        $this->emailChangeMessage = 'A verification link was sent to '.$email.'. Your current email stays active until you confirm the new address.';
+    }
+
+    public function updatedEmail(): void
+    {
+        $this->emailChangeMessage = '';
     }
 
     /**

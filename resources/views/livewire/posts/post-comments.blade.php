@@ -38,7 +38,18 @@
                     <div wire:key="comment-{{ $comment->id }}" class="flex gap-3">
                         <x-user-avatar :user="$comment->user"/>
                         <div class="min-w-0 flex-1">
-                            <div class="flex flex-wrap items-center gap-2"><span class="text-xs font-semibold">{{ $comment->user->name }}</span><time datetime="{{ $comment->created_at->toIso8601String() }}" class="text-xs text-muted">{{ $comment->created_at->diffForHumans() }}</time></div>
+                            <div class="flex flex-wrap items-center gap-2"><span class="text-xs font-semibold">{{ $comment->user->name }}</span><time datetime="{{ $comment->created_at->toIso8601String() }}" class="text-xs text-muted">{{ $comment->created_at->diffForHumans() }}</time>
+                                @auth
+                                    @if(auth()->id() !== $comment->user_id)
+                                        <div class="relative" x-data="{ commentOptionsOpen: false }" x-on:click.outside="commentOptionsOpen = false" x-on:keydown.escape.stop="commentOptionsOpen = false; $refs.commentOptionsButton.focus()">
+                                            <button type="button" x-ref="commentOptionsButton" x-on:click="commentOptionsOpen = !commentOptionsOpen" x-bind:aria-expanded="commentOptionsOpen" aria-label="Comment options" class="flex size-8 items-center justify-center rounded-sm text-muted transition hover:bg-soft hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"><x-coffee-icon name="more" class="size-4"/></button>
+                                            <div x-cloak x-show="commentOptionsOpen" class="absolute top-full right-0 z-20 mt-1 w-48 rounded-sm border border-line bg-surface p-1 shadow-lg">
+                                                <button type="button" x-on:click="commentOptionsOpen = false" wire:click="reportComment({{ $comment->id }})" wire:confirm="Send this comment to CoffeeSpace admins for review?" class="flex min-h-11 w-full items-center gap-2 rounded-sm px-3 text-left text-sm text-ink hover:bg-soft focus-visible:outline-2 focus-visible:outline-brand"><x-coffee-icon name="warning" class="size-4"/>Report comment</button>
+                                            </div>
+                                        </div>
+                                    @endif
+                                @endauth
+                            </div>
                             <p class="mt-1 whitespace-pre-wrap text-sm leading-6 wrap-anywhere">{{ $comment->body }}</p>
 
                             @auth
@@ -70,7 +81,18 @@
                                         <div wire:key="comment-reply-{{ $reply->id }}" class="flex gap-3">
                                             <x-user-avatar :user="$reply->user"/>
                                             <div class="min-w-0 flex-1">
-                                                <div class="flex flex-wrap items-center gap-2"><span class="text-xs font-semibold">{{ $reply->user->name }}</span><time datetime="{{ $reply->created_at->toIso8601String() }}" class="text-xs text-muted">{{ $reply->created_at->diffForHumans() }}</time></div>
+                                                <div class="flex flex-wrap items-center gap-2"><span class="text-xs font-semibold">{{ $reply->user->name }}</span><time datetime="{{ $reply->created_at->toIso8601String() }}" class="text-xs text-muted">{{ $reply->created_at->diffForHumans() }}</time>
+                                                    @auth
+                                                        @if(auth()->id() !== $reply->user_id)
+                                                            <div class="relative" x-data="{ commentOptionsOpen: false }" x-on:click.outside="commentOptionsOpen = false" x-on:keydown.escape.stop="commentOptionsOpen = false; $refs.commentOptionsButton.focus()">
+                                                                <button type="button" x-ref="commentOptionsButton" x-on:click="commentOptionsOpen = !commentOptionsOpen" x-bind:aria-expanded="commentOptionsOpen" aria-label="Comment options" class="flex size-8 items-center justify-center rounded-sm text-muted transition hover:bg-soft hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"><x-coffee-icon name="more" class="size-4"/></button>
+                                                                <div x-cloak x-show="commentOptionsOpen" class="absolute top-full right-0 z-20 mt-1 w-48 rounded-sm border border-line bg-surface p-1 shadow-lg">
+                                                                    <button type="button" x-on:click="commentOptionsOpen = false" wire:click="reportComment({{ $reply->id }})" wire:confirm="Send this comment to CoffeeSpace admins for review?" class="flex min-h-11 w-full items-center gap-2 rounded-sm px-3 text-left text-sm text-ink hover:bg-soft focus-visible:outline-2 focus-visible:outline-brand"><x-coffee-icon name="warning" class="size-4"/>Report comment</button>
+                                                                </div>
+                                                            </div>
+                                                        @endif
+                                                    @endauth
+                                                </div>
                                                 <p class="mt-1 whitespace-pre-wrap text-sm leading-6 wrap-anywhere">{{ $reply->body }}</p>
                                             </div>
                                         </div>
