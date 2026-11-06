@@ -1,16 +1,9 @@
-<div class="mx-auto max-w-[1280px]">
+<div class="mx-auto max-w-[1280px]" x-data="chatRealtime($wire, @js($viewer->profile_uuid))">
     <div x-data="{ chatToast: '' }" x-on:toast.window="chatToast = $event.detail.message; setTimeout(() => chatToast = '', 4000)" x-cloak x-show="chatToast" x-transition role="status" aria-live="polite" class="fixed right-4 top-4 z-[120] max-w-sm rounded-md border border-line bg-surface px-4 py-3 text-sm text-ink shadow-lg" x-text="chatToast"></div>
-    <div class="mb-6 flex items-end justify-between gap-4">
-        <div>
-            <h1 class="font-display text-3xl font-semibold">Your conversations</h1>
-            <p class="mt-2 text-sm text-muted">A quiet place to plan your next coffee stop.</p>
-        </div>
-        <a href="{{ route('home') }}" wire:navigate class="hidden min-h-11 items-center gap-2 text-sm text-brand sm:flex"><x-coffee-icon name="discover"/>Discover stories</a>
-    </div>
 
-    <section class="grid min-h-[min(72vh,760px)] overflow-hidden rounded-md border border-line bg-surface lg:grid-cols-[320px_minmax(0,1fr)]" aria-label="Chat">
-        <aside @class(['flex flex-col border-r border-line', 'hidden lg:flex' => $recipient || $conversation]) aria-label="Conversations">
-            <div class="border-b border-line p-5">
+    <section class="grid h-[calc(100dvh-14rem)] min-h-[320px] overflow-hidden rounded-md border border-line bg-surface lg:h-[calc(100dvh-10rem)] lg:min-h-[420px] lg:grid-cols-[320px_minmax(0,1fr)]" aria-label="Chat">
+        <aside @class(['flex min-h-0 flex-col border-r border-line', 'hidden lg:flex' => $recipient || $conversation]) aria-label="Conversations">
+            <div class="shrink-0 border-b border-line p-5">
                 <div class="flex items-center justify-between gap-3"><h2 class="font-display text-xl font-semibold">Inbox</h2><span class="text-[10px] text-muted">Direct messages</span></div>
                 <nav class="mt-4 flex gap-1 border-b border-line" role="tablist" aria-label="Inbox filters">
                     <button type="button" role="tab" aria-selected="{{ $inboxFilter === 'all' ? 'true' : 'false' }}" wire:click="setInboxFilter('all')" @class(['min-h-10 border-b-2 px-3 text-xs font-medium transition', 'border-brand text-brand' => $inboxFilter === 'all', 'border-transparent text-muted hover:text-ink' => $inboxFilter !== 'all'])>All</button>
@@ -18,7 +11,7 @@
                     <button type="button" role="tab" aria-selected="{{ $inboxFilter === 'muted' ? 'true' : 'false' }}" wire:click="setInboxFilter('muted')" @class(['flex min-h-10 items-center gap-1.5 border-b-2 px-3 text-xs font-medium transition', 'border-brand text-brand' => $inboxFilter === 'muted', 'border-transparent text-muted hover:text-ink' => $inboxFilter !== 'muted'])>Muted @if($mutedCount)<span class="rounded-full bg-soft px-1.5 py-0.5 text-[10px] tabular-nums">{{ $mutedCount }}</span>@endif</button>
                 </nav>
             </div>
-            <div class="flex-1 divide-y divide-line overflow-y-auto">
+            <div class="min-h-0 flex-1 divide-y divide-line overflow-y-auto overscroll-contain">
                 @forelse($conversations as $item)
                     @php($other = $item->otherUser($viewer))
                     @php($itemSetting = $item->settingFor($viewer))
@@ -40,24 +33,24 @@
             </div>
         </aside>
 
-        <div @class(['flex min-h-[min(72vh,760px)] min-w-0 flex-col', 'hidden lg:flex' => ! $recipient && ! $conversation])>
+        <div @class(['flex min-h-0 min-w-0 flex-col', 'hidden lg:flex' => ! $recipient && ! $conversation])>
             @if($recipient && ! $conversation)
-                <header class="flex items-center gap-3 border-b border-line px-4 py-3 sm:px-6">
+                <header class="flex shrink-0 items-center gap-3 border-b border-line px-4 py-3 sm:px-6">
                     <button type="button" wire:click="$set('recipientUuid', '')" class="flex size-10 shrink-0 items-center justify-center text-brand lg:hidden" aria-label="Back to inbox"><x-coffee-icon name="arrow" class="rotate-180"/></button>
                     <x-user-avatar :user="$recipient"/>
-                    <div class="min-w-0"><h2 class="truncate text-sm font-semibold">{{ $recipient->name }}</h2><p class="flex items-center gap-2 text-xs text-muted">@if($recipient->isOnline())<span aria-hidden="true" class="size-2 rounded-full bg-emerald-600"></span>@endif{{ $recipient->activityLabel() }}</p></div>
+                    <div class="min-w-0"><h2 class="truncate text-sm font-semibold">{{ $recipient->name }}</h2><livewire:components.activity-status :user-id="$recipient->id" :key="'chat-activity-'.$recipient->id" /></div>
                 </header>
-                <div class="flex flex-1 flex-col items-center justify-center px-6 py-12 text-center">
+                <div class="flex min-h-0 flex-1 flex-col items-center justify-center overflow-y-auto px-6 py-12 text-center">
                     <div class="flex size-14 items-center justify-center rounded-full bg-soft text-brand"><x-coffee-icon name="comment" class="size-6"/></div>
                     <h3 class="mt-4 font-display text-xl font-semibold">Say hello to {{ $recipient->name }}</h3>
                     <p class="mt-2 max-w-sm text-sm leading-6 text-muted">Ask about a caf&eacute;, share a recommendation, or plan a coffee meetup.</p>
                 </div>
             @elseif($conversation)
                 @php($other = $conversation->otherUser($viewer))
-                <header class="flex items-center gap-3 border-b border-line px-4 py-3 sm:px-6">
+                <header class="flex shrink-0 items-center gap-3 border-b border-line px-4 py-3 sm:px-6">
                     <button type="button" wire:click="$set('conversationUuid', '')" class="flex size-10 shrink-0 items-center justify-center text-brand lg:hidden" aria-label="Back to inbox"><x-coffee-icon name="arrow" class="rotate-180"/></button>
                     <x-user-avatar :user="$other"/>
-                    <div class="min-w-0 flex-1"><h2 class="truncate text-sm font-semibold">{{ $other->name }}</h2><p class="flex items-center gap-2 text-xs text-muted">@if($other->isOnline())<span aria-hidden="true" class="size-2 rounded-full bg-emerald-600"></span>@endif{{ $other->activityLabel() }}</p></div>
+                    <div class="min-w-0 flex-1"><h2 class="truncate text-sm font-semibold">{{ $other->name }}</h2><livewire:components.activity-status :user-id="$other->id" :key="'chat-activity-'.$other->id" /></div>
                     <div class="relative ml-auto" x-data="{ open: false }" x-on:keydown.escape.window="open = false" x-on:click.outside="open = false">
                         <button type="button" x-on:click="open = !open" x-bind:aria-expanded="open.toString()" aria-haspopup="menu" aria-label="Conversation actions" class="flex size-10 items-center justify-center rounded-full text-muted hover:bg-soft hover:text-ink"><x-coffee-icon name="more" class="size-5"/></button>
                         <div x-cloak x-show="open" x-transition.origin.top.right role="menu" aria-label="Conversation actions" class="absolute right-0 z-20 mt-2 w-56 rounded-md border border-line bg-surface p-1 shadow-lg">
@@ -70,7 +63,7 @@
                         </div>
                     </div>
                 </header>
-                <div wire:poll.10s="markConversationRead" class="flex-1 space-y-4 overflow-y-auto px-4 py-5 sm:px-6" x-data x-init="$el.scrollTop = $el.scrollHeight" aria-live="polite" aria-label="Messages">
+                <div wire:key="chat-messages-{{ $conversation->conversation_uuid }}" class="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-4 py-5 sm:px-6" x-data="{ followLatest: true, currentConversationUuid: @js($conversation->conversation_uuid) }" x-init="$nextTick(() => $el.scrollTop = $el.scrollHeight)" x-on:scroll="followLatest = $el.scrollHeight - $el.scrollTop - $el.clientHeight < 96" x-on:chat-message-updated.window="if (followLatest && $event.detail.conversationUuid === currentConversationUuid) $nextTick(() => $el.scrollTo({ top: $el.scrollHeight, behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' }))" aria-live="polite" aria-label="Messages">
                     @forelse($messages as $message)
                         <div @class(['flex items-end gap-2', 'justify-end' => $message->sender_id === $viewer->id])>
                             @if($message->sender_id !== $viewer->id)<x-user-avatar :user="$message->sender"/>@endif
@@ -119,7 +112,7 @@
             @endif
 
             @if($recipient || $conversation)
-                <form wire:submit="sendMessage" class="border-t border-line p-3 sm:p-5">
+                <form wire:submit="sendMessage" class="shrink-0 border-t border-line p-3 sm:p-5">
                     <label for="chat-message" class="sr-only">Write a message</label>
                     <div class="flex items-end gap-2">
                         <textarea id="chat-message" wire:model="body" rows="2" maxlength="2000" placeholder="Write a message..." class="max-h-36 min-h-12 flex-1 resize-y rounded-sm border border-line bg-page px-3 py-3 text-sm leading-5 placeholder:text-muted focus:border-brand focus:outline-2 focus:outline-brand" @error('body') aria-invalid="true" aria-describedby="chat-message-error" @enderror></textarea>
@@ -134,8 +127,8 @@
 @if($cafeSearchOpen)
     <div class="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4" role="presentation" x-data x-on:keydown.escape.window="$wire.set('cafeSearchOpen', false)">
         <section role="dialog" aria-modal="true" aria-labelledby="cafe-search-title" class="max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-md border border-line bg-surface p-5 shadow-xl sm:p-6">
-            <div class="flex items-start justify-between gap-4"><div><p class="text-[10px] font-semibold uppercase tracking-[.2em] text-brand">Share a place</p><h2 id="cafe-search-title" class="mt-1 font-display text-2xl font-semibold">Find a cafe</h2></div><button type="button" x-data="{ spilling: false }" x-on:click="if (!spilling) { spilling = true; setTimeout(() => $wire.set('cafeSearchOpen', false), 520) }" class="flex size-10 items-center justify-center rounded-full text-muted hover:bg-soft focus-visible:outline-2 focus-visible:outline-brand" aria-label="Close cafe search"><svg viewBox="0 0 32 32" class="size-6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><g x-bind:class="spilling ? 'coffee-spill-cup' : ''"><path d="M7 13h14v8a5 5 0 0 1-5 5h-4a5 5 0 0 1-5-5v-8Z"/><path d="M21 15h2a3 3 0 0 1 0 6h-2"/><path d="M5 28h19"/></g><path x-cloak x-show="spilling" class="coffee-spill-pour" d="M13 8c0-2 2-2 2-4m3 5c0-1 1-1.5 1-3"/><path x-cloak x-show="spilling" class="coffee-spill-drop" d="M25 10c-1 1-1 2 0 2s1-1 0-2Z"/></svg></button></div>
-            <form wire:submit="searchCafes" class="mt-5 flex gap-2"><label for="chat-cafe-search" class="sr-only">Search cafes</label><input id="chat-cafe-search" wire:model="cafeSearchQuery" maxlength="200" placeholder="Cafe, neighborhood, or city" class="min-h-11 min-w-0 flex-1 rounded-sm border border-line bg-page px-3 text-sm"><button type="submit" wire:loading.attr="disabled" wire:target="searchCafes" class="min-h-11 rounded-sm bg-brand px-4 text-sm font-medium text-on-brand">Search</button></form>
+            <div class="flex items-start justify-between gap-4"><div><p class="text-[10px] font-semibold uppercase tracking-[.2em] text-brand">Share a place</p><h2 id="cafe-search-title" class="mt-1 font-display text-2xl font-semibold">Find a cafe</h2></div><button type="button" x-data="{ spilling: false, closing: false }" x-on:mouseenter="spilling = true" x-on:mouseleave="if (!closing) spilling = false" x-on:focus="spilling = true" x-on:blur="if (!closing) spilling = false" x-on:click="if (!closing) { closing = true; spilling = true; setTimeout(() => $wire.set('cafeSearchOpen', false), 520) }" class="relative flex size-10 items-center justify-center rounded-full text-muted transition-colors hover:bg-soft focus-visible:outline-2 focus-visible:outline-brand" aria-label="Close cafe search" title="Close cafe search"><svg viewBox="0 0 32 32" class="size-6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><g x-bind:class="spilling ? 'coffee-spill-cup' : ''"><path d="M7 13h14v8a5 5 0 0 1-5 5h-4a5 5 0 0 1-5-5v-8Z"/><path d="M21 15h2a3 3 0 0 1 0 6h-2"/><path d="M5 28h19"/></g><path x-cloak x-show="spilling" class="coffee-spill-pour" d="M22 14c2 0 2 2 4 2m-3 3c2 0 2 2 4 2"/><path x-cloak x-show="spilling" class="coffee-spill-drop" d="M29 20c-1 1-1 2 0 2s1-1 0-2Z"/></svg><span x-cloak x-show="spilling" x-transition.opacity aria-hidden="true" class="absolute right-0 top-0 flex size-4 items-center justify-center rounded-full bg-surface text-brand shadow-sm"><x-lucide-x class="size-3"/></span></button></div>
+            <form wire:submit="searchCafes" class="mt-5 flex gap-2"><label for="chat-cafe-search" class="sr-only">Search cafes</label><input id="chat-cafe-search" wire:model="cafeSearchQuery" maxlength="200" placeholder="Cafe, neighborhood, or city" class="min-h-11 min-w-0 flex-1 rounded-sm border border-line bg-page px-3 text-sm"><button type="submit" wire:loading.attr="disabled" wire:target="searchCafes" aria-label="Search places" title="Search places" class="flex size-11 shrink-0 items-center justify-center rounded-full bg-brand text-on-brand transition-transform active:scale-95 disabled:opacity-70"><x-lucide-search class="size-5" wire:loading.class="chat-search-sweep" wire:target="searchCafes"/><span class="sr-only">Search</span></button></form>
             <p wire:loading wire:target="searchCafes" class="mt-3 text-xs text-muted">Searching places…</p>
             @error('cafeSearchQuery')<p class="mt-2 text-xs text-red-700">Enter at least 3 characters.</p>@enderror
             @if($cafeSearchError)<p role="alert" class="mt-3 text-sm text-red-700">{{ $cafeSearchError }}</p>@endif

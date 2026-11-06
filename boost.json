@@ -9,6 +9,7 @@
         "testing-best-practices",
         "fluxui-development",
         "volt-development",
+        "echo-development",
         "tailwindcss-development"
     ]
 }

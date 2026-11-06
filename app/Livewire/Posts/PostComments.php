@@ -4,7 +4,7 @@ namespace App\Livewire\Posts;
 
 use App\Models\Post;
 use App\Models\User;
-use App\Notifications\ActivityEmailNotification;
+use App\Services\ActivityNotifier;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\RateLimiter;
 use Livewire\Attributes\Locked;
@@ -17,6 +17,15 @@ class PostComments extends Component
 
     #[Locked]
     public int $commentCount = 0;
+
+    #[Locked]
+    public ?string $cafeName = null;
+
+    #[Locked]
+    public ?string $tag = null;
+
+    #[Locked]
+    public ?string $price = null;
 
     #[Locked]
     public int $rootCommentCount = 0;
@@ -102,6 +111,7 @@ class PostComments extends Component
         }
 
         $reply = $parent->replies()->make(['body' => $this->replyBody]);
+        $reply->post()->associate($post);
         $reply->user()->associate(auth()->user());
         $reply->save();
         $this->notifyPostOwner($post, auth()->user());
@@ -114,15 +124,16 @@ class PostComments extends Component
     {
         $postOwner = $post->user;
 
-        if ($postOwner->isNot($actor) && $postOwner->hasVerifiedEmail() && $postOwner->notify_comments_by_email) {
-            $postOwner->notify((new ActivityEmailNotification(
+        if ($postOwner->isNot($actor)) {
+            app(ActivityNotifier::class)->send(
+                $postOwner,
                 'COMMENT',
                 'A new comment on your post',
                 $actor->name,
                 $post->title,
                 'View post',
                 $post->postUrl(),
-            ))->afterCommit());
+            );
         }
     }
 

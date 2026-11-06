@@ -1,7 +1,24 @@
-<section class="border-t border-line px-5 py-3" aria-label="Post comments">
-    <button type="button" wire:click="toggle" aria-expanded="{{ $expanded ? 'true' : 'false' }}" aria-controls="comments-{{ $postId }}" class="flex min-h-11 items-center gap-2 text-sm text-muted hover:text-brand"><x-coffee-icon name="comment"/>Comments <span>({{ $commentCount }})</span></button>
+<section class="border-t border-line px-4 py-1.5 sm:px-5" aria-label="Post comments">
+    <div class="flex min-h-11 items-center justify-between gap-3">
+        <div class="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+            @if($cafeName)
+                <a href="{{ route('coffee.map') }}" wire:navigate class="inline-flex min-h-8 max-w-full items-center gap-1.5 rounded-sm bg-soft px-2.5 py-1.5 text-xs text-brand hover:bg-soft/80">
+                    <x-coffee-icon name="map" class="size-3.5"/><span class="truncate">{{ $cafeName }}</span>
+                </a>
+            @endif
+            @if($tag)<span class="max-w-28 truncate rounded-sm bg-page px-2 py-1 text-xs text-muted">{{ $tag }}</span>@endif
+            @if($price !== null)<span class="shrink-0 text-xs text-muted">₱{{ $price }} / cup</span>@endif
+        </div>
+        <button type="button" x-data="{ showingDots: false }" x-on:click="showingDots = true; setTimeout(() => showingDots = false, 700)" wire:click="toggle" aria-expanded="{{ $expanded ? 'true' : 'false' }}" aria-controls="comments-{{ $postId }}" class="flex min-h-10 shrink-0 items-center gap-2 text-sm text-muted hover:text-brand">
+            <span class="relative inline-flex size-5 items-center justify-center">
+                <x-coffee-icon name="comment"/>
+                <span x-cloak x-show="showingDots" x-transition.opacity aria-hidden="true" class="comment-click-dots"><i></i><i></i><i></i></span>
+            </span>
+            <span>Comments</span><span>({{ $commentCount }})</span>
+        </button>
+    </div>
     @if($expanded)
-        <div id="comments-{{ $postId }}" class="flex flex-col gap-4 pt-3">
+        <div id="comments-{{ $postId }}" class="flex flex-col gap-4 border-t border-line pb-3 pt-3">
             @auth
                 @if(auth()->user()->hasVerifiedEmail())
                 <form wire:submit="addComment" class="flex flex-col gap-2">

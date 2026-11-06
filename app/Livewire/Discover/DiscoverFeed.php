@@ -4,9 +4,11 @@ namespace App\Livewire\Discover;
 
 use App\Models\Post;
 use App\Models\User;
-use App\Notifications\ActivityEmailNotification;
+use App\Services\ActivityNotifier;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Locked;
 use Livewire\Attributes\Url;
@@ -20,6 +22,15 @@ class DiscoverFeed extends Component
 
     #[Locked]
     public int $visibleCount = self::PAGE_SIZE;
+
+    #[Locked]
+    public int $randomMultiplier;
+
+    #[Locked]
+    public int $randomOffset;
+
+    #[Locked]
+    public int $feedRevision = 0;
 
     #[Url(except: '')]
     public string $search = '';
@@ -35,6 +46,12 @@ class DiscoverFeed extends Component
 
     public string $nearbyLocationError = '';
 
+    public function mount(): void
+    {
+        $this->feedRevision = $this->currentFeedRevision();
+        $this->shuffleForYouFeed();
+    }
+
     public function placeholder(): View
     {
         return view('livewire.placeholders.discover');
@@ -48,6 +65,37 @@ class DiscoverFeed extends Component
     public function updatedFilter(): void
     {
         $this->visibleCount = self::PAGE_SIZE;
+        $this->shuffleForYouFeed();
+    }
+
+    public function refreshFeed(): void
+    {
+        $cache = Cache::store('discover');
+        $cache->increment($this->feedRevisionCacheKey());
+        $this->feedRevision = $this->currentFeedRevision();
+        $this->visibleCount = self::PAGE_SIZE;
+        $this->shuffleForYouFeed();
+    }
+
+    private function feedRevisionCacheKey(): string
+    {
+        return 'discover:revision:user:'.(auth()->id() ?? 'guest');
+    }
+
+    private function currentFeedRevision(): int
+    {
+        $cache = Cache::store('discover');
+        $key = $this->feedRevisionCacheKey();
+        $cache->add($key, 0, now()->addDays(30));
+
+        return (int) $cache->get($key, 0);
+    }
+
+    private function shuffleForYouFeed(): void
+    {
+        $seed = hash('sha256', (auth()->id() ?? 'guest').':'.$this->feedRevision);
+        $this->randomMultiplier = 536_870_912 + (hexdec(substr($seed, 0, 8)) % 1_610_612_735);
+        $this->randomOffset = hexdec(substr($seed, 8, 8)) % 2_147_483_647;
     }
 
     public function setNearbyLocation(float $latitude, float $longitude): void
@@ -99,6 +147,14 @@ class DiscoverFeed extends Component
 
     }
 
+    public function likePost(int $postId): void
+    {
+        abort_unless(auth()->check(), 401);
+        $post = Post::visibleTo(auth()->user())->findOrFail($postId);
+
+        auth()->user()->likedPosts()->syncWithoutDetaching([$post->id]);
+    }
+
     public function toggleSave(int $postId): void
     {
         abort_unless(auth()->check(), 401);
@@ -108,27 +164,91 @@ class DiscoverFeed extends Component
         $saved = $user->toggleSavedPost($post);
         if ($saved) {
             $postOwner = $post->user;
-            if ($postOwner->isNot($user) && $postOwner->hasVerifiedEmail() && $postOwner->notify_saves_by_email) {
-                $postOwner->notify((new ActivityEmailNotification(
+            if ($postOwner->isNot($user)) {
+                app(ActivityNotifier::class)->send(
+                    $postOwner,
                     'SAVED',
                     'Someone saved your post',
                     $user->name,
                     $post->title,
                     'View post',
                     $post->postUrl(),
-                ))->afterCommit());
+                );
             }
         }
     }
 
     private function filteredStories(): Builder
     {
-        $query = mb_substr(trim($this->search), 0, 100);
+        $query = $this->searchTerm();
 
-        return Post::visibleTo(auth()->user())->where('visibility', '!=', 'private')->whereNull('archived_at')
+        $stories = Post::visibleTo(auth()->user())->where('visibility', '!=', 'private')->whereNull('archived_at')
             ->when($this->filter === 'following', fn ($stories) => auth()->check() ? $stories->whereIn('user_id', auth()->user()->following()->select('users.id')) : $stories->whereRaw('1 = 0'))
             ->when($this->filter === 'nearby', fn (Builder $stories) => $this->nearbyStories($stories))
             ->when($query !== '', fn (Builder $stories) => $this->searchStories($stories, $query));
+
+        if ($this->filter === 'for-you') {
+            return $stories->orderByRaw('(posts.id * ? + ?) % 2147483647', [$this->randomMultiplier, $this->randomOffset]);
+        }
+
+        return $stories->orderByDesc('posts.id');
+    }
+
+    private function searchTerm(): string
+    {
+        return mb_substr(trim($this->search), 0, 100);
+    }
+
+    private function cachedPostIds(): array
+    {
+        $nearby = $this->filter === 'nearby'
+            ? [round((float) $this->nearbyLatitude, 6), round((float) $this->nearbyLongitude, 6)]
+            : null;
+        $cacheKey = 'discover:feed:'.hash('sha256', serialize([
+            auth()->id() ?? 'guest', $this->feedRevision, $this->filter, $this->searchTerm(), $nearby, $this->visibleCount,
+        ]));
+
+        return Cache::store('discover')->remember($cacheKey, now()->addHours(12), fn () => $this->filteredStories()
+            ->limit($this->visibleCount + 1)
+            ->pluck('posts.id')
+            ->map(fn ($id) => (int) $id)
+            ->all());
+    }
+
+    private function matchingProfiles(): Collection
+    {
+        $term = $this->searchTerm();
+        if (mb_strlen($term) < 3) {
+            return collect();
+        }
+
+        $viewer = auth()->user();
+
+        $profiles = User::query()->select(['id', 'name', 'profile_uuid', 'profile_photo'])->whereNotNull('profile_uuid');
+        if (DB::connection()->getDriverName() === 'mysql') {
+            $namePrefix = addcslashes($term, '\\%_').'%';
+            $profiles->where(fn (Builder $users) => $users
+                ->whereFullText('name', $term)
+                ->orWhere('name', 'like', $namePrefix));
+        } else {
+            $profiles->whereRaw('LOWER(name) LIKE ?', ['%'.mb_strtolower($term).'%']);
+        }
+
+        return $profiles
+            ->when($viewer, fn (Builder $users) => $users->whereNotExists(function ($blocks) use ($viewer) {
+                $blocks->selectRaw('1')->from('user_blocks')->where(function ($pair) use ($viewer) {
+                    $pair->where(function ($outgoing) use ($viewer) {
+                        $outgoing->where('user_blocks.blocker_id', $viewer->id)
+                            ->whereColumn('user_blocks.blocked_id', 'users.id');
+                    })->orWhere(function ($incoming) use ($viewer) {
+                        $incoming->whereColumn('user_blocks.blocker_id', 'users.id')
+                            ->where('user_blocks.blocked_id', $viewer->id);
+                    });
+                });
+            }))
+            ->orderBy('name')
+            ->limit(8)
+            ->get();
     }
 
     private function searchStories(Builder $stories, string $query): Builder
@@ -198,8 +318,11 @@ class DiscoverFeed extends Component
 
     public function render(): View
     {
-        $posts = $this->filteredStories()->with(['user:id,name,profile_uuid', 'media', 'amenityMedia'])->withCount(['comments', 'likes'])
-            ->orderByDesc('id')->limit($this->visibleCount + 1)->get();
+        $postIds = $this->cachedPostIds();
+        $loadedPosts = Post::visibleTo(auth()->user())->whereIn('posts.id', $postIds)
+            ->where('visibility', '!=', 'private')->whereNull('archived_at')
+            ->with(['user:id,name,profile_uuid', 'media', 'amenityMedia'])->withCount(['comments', 'likes'])->get()->keyBy('id');
+        $posts = collect($postIds)->map(fn (int $id) => $loadedPosts->get($id))->filter()->values();
         $stories = $posts->take($this->visibleCount)->map(fn (Post $post) => [
             'post_url' => $post->postUrl(), 'amenities' => $post->amenities ?? [], 'amenity_media' => $post->amenityMedia->map(fn ($item) => ['amenity_key' => $item->amenity_key, 'url' => route('post-media.show', $item)])->all(), 'visibility' => $post->visibility, 'profile_url' => $post->user->profileUrl(), 'id' => $post->id, 'name' => $post->user->name, 'handle' => $post->author_handle,
             'initials' => $post->user->initials(), 'city' => $post->city,
@@ -215,6 +338,7 @@ class DiscoverFeed extends Component
 
         return view('livewire.discover.feed', [
             'stories' => $stories,
+            'profileResults' => $this->matchingProfiles(),
             'hasMore' => $posts->count() > $this->visibleCount,
             'nearbyRadiusKm' => self::NEARBY_RADIUS_KM,
         ]);

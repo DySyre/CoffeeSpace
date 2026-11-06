@@ -9,6 +9,7 @@ export default function profileImageCropper(wire, options = {}) {
         shareKind: 'profile', profileQr: '', profileShareUrl: '', profileShareError: '', profileLinkCopied: false,
         toastTitle: '', toastVisible: false, toastKind: 'loading', toastMessage: '',
         tab: 'stories', editingBio: false, photoUploading: false, coverUploading: false,
+        editMediaPreviews: [], editMediaError: '', postMediaUploading: false, postMediaProgress: 0,
         postRatio: 'original', postRatioLocked: false, originalRatio: 1,
         cropKind: 'photo', cropReady: false, cropBusy: false, cropError: '', cropProgress: 0,
         zoom: 1, offsetX: 0, offsetY: 0, baseScale: 1, disposed: false,
@@ -31,6 +32,57 @@ export default function profileImageCropper(wire, options = {}) {
         async copyProfileLink() {
             try { await navigator.clipboard.writeText(this.profileShareUrl); this.profileLinkCopied = true; }
             catch { this.profileShareError = 'Select the profile link above and copy it manually.'; }
+        },
+
+        uploadPostMedia(event) {
+            const files = Array.from(event.target.files ?? []);
+            event.target.value = '';
+            if (!files.length || this.postMediaUploading) return;
+
+            const invalidFile = files.find(file => {
+                const video = /\.(mp4|mov)$/i.test(file.name);
+                return !/\.(jpe?g|png|mp4|mov)$/i.test(file.name)
+                    || file.size > (video ? 25 : 10) * 1024 * 1024;
+            });
+            if (invalidFile) {
+                this.editMediaError = `${invalidFile.name} is not supported. Use JPEG/PNG up to 10 MB or MP4/MOV up to 25 MB.`;
+                this.showToast('error', this.editMediaError, 'File not supported');
+                return;
+            }
+
+            this.editMediaError = '';
+            const previews = files.map(file => ({
+                kind: /\.(mp4|mov)$/i.test(file.name) ? 'video' : 'image',
+                url: URL.createObjectURL(file),
+            }));
+            this.editMediaPreviews.push(...previews);
+            this.postMediaUploading = true;
+            this.postMediaProgress = 0;
+
+            wire.uploadMultiple('editUploads', files,
+                () => {
+                    this.postMediaUploading = false;
+                    this.postMediaProgress = 100;
+                },
+                () => {
+                    previews.forEach(preview => URL.revokeObjectURL(preview.url));
+                    const failedUrls = new Set(previews.map(preview => preview.url));
+                    this.editMediaPreviews = this.editMediaPreviews.filter(preview => !failedUrls.has(preview.url));
+                    this.postMediaUploading = false;
+                    this.postMediaProgress = 0;
+                    this.editMediaError = 'The selected media could not be uploaded. Please try again.';
+                    this.showToast('error', this.editMediaError, 'Upload failed');
+                },
+                event => { this.postMediaProgress = event.detail.progress; },
+            );
+        },
+
+        clearEditPreviews() {
+            this.editMediaPreviews.forEach(preview => URL.revokeObjectURL(preview.url));
+            this.editMediaPreviews = [];
+            this.editMediaError = '';
+            this.postMediaUploading = false;
+            this.postMediaProgress = 0;
         },
 
         showToast(kind, message, title = '') {
@@ -206,6 +258,7 @@ export default function profileImageCropper(wire, options = {}) {
             this.disposed = true;
             this.hideToast();
             this.cropBusy = false;
+            this.clearEditPreviews();
             this.closeCrop();
         },
     };

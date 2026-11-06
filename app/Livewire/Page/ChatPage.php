@@ -2,12 +2,15 @@
 
 namespace App\Livewire\Page;
 
+use App\Events\ChatUpdated;
 use App\Models\Conversation;
 use App\Models\ConversationUserSetting;
+use App\Models\Message;
 use App\Models\PlannedVisit;
 use App\Models\User;
-use App\Notifications\ActivityEmailNotification;
+use App\Services\ActivityNotifier;
 use App\Services\PlaceSearch;
+use App\Services\RealtimeActivity;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -105,6 +108,33 @@ class ChatPage extends Component
             $setting->last_read_at = now();
             $setting->save();
         }
+        auth()->user()->unreadNotifications()
+            ->where('data->context->conversation_uuid', $conversation->conversation_uuid)
+            ->update(['read_at' => now()]);
+        app(RealtimeActivity::class)->notify(auth()->user(), 'MESSAGE');
+    }
+
+    public function refreshChat(?string $incomingConversationUuid = null, ?string $senderUuid = null): void
+    {
+        if ($incomingConversationUuid !== null
+            && $this->conversationUuid === ''
+            && $this->recipientUuid !== ''
+            && $senderUuid !== null
+            && hash_equals($this->recipientUuid, $senderUuid)) {
+            $conversation = Conversation::forUser(auth()->user())
+                ->where('conversation_uuid', $incomingConversationUuid)
+                ->first();
+
+            if ($conversation && $conversation->otherUser(auth()->user())->profile_uuid === $this->recipientUuid) {
+                $this->conversationUuid = $conversation->conversation_uuid;
+                $this->recipientUuid = '';
+            }
+        }
+
+        if ($this->conversationUuid !== ''
+            && ($incomingConversationUuid === null || hash_equals($this->conversationUuid, $incomingConversationUuid))) {
+            $this->markConversationRead();
+        }
     }
 
     public function startConversation(string $profileUuid): void
@@ -150,17 +180,19 @@ class ChatPage extends Component
         $message->sender()->associate($viewer);
         $message->save();
         $recipientMuted = $conversation->settingFor($recipient)?->muted_at !== null;
-        if (! $recipientMuted && $recipient->hasVerifiedEmail() && $recipient->notify_messages_by_email) {
-            $recipient->notify((new ActivityEmailNotification(
-                'MESSAGE',
-                'You have a new message',
-                $viewer->name,
-                '',
-                'View message',
-                route('chat.index', ['with' => $viewer->profile_uuid]),
-            ))->afterCommit());
-        }
+        app(ActivityNotifier::class)->send(
+            $recipient,
+            'MESSAGE',
+            'You have a new message',
+            $viewer->name,
+            '',
+            'View message',
+            route('chat.index', ['conversation' => $conversation->conversation_uuid]),
+            allowEmail: ! $recipientMuted,
+            context: ['conversation_uuid' => $conversation->conversation_uuid],
+        );
         $conversation->touch();
+        $this->broadcastChatUpdate($conversation, $viewer, $recipient, $message);
         RateLimiter::hit($rateKey, 60);
         $this->conversationUuid = $conversation->conversation_uuid;
         $this->recipientUuid = '';
@@ -229,7 +261,19 @@ class ChatPage extends Component
         ]);
         $message->sender()->associate($viewer);
         $message->save();
+        app(ActivityNotifier::class)->send(
+            $recipient,
+            'MESSAGE',
+            'A cafe was shared with you',
+            $viewer->name,
+            $place['name'],
+            'View cafe',
+            route('chat.index', ['conversation' => $conversation->conversation_uuid]),
+            allowEmail: ! ($conversation->settingFor($recipient)?->muted_at !== null),
+            context: ['conversation_uuid' => $conversation->conversation_uuid],
+        );
         $conversation->touch();
+        $this->broadcastChatUpdate($conversation, $viewer, $recipient, $message);
         RateLimiter::hit('chat-messages:'.$viewer->id, 60);
         $this->conversationUuid = $conversation->conversation_uuid;
         $this->recipientUuid = '';
@@ -302,6 +346,8 @@ class ChatPage extends Component
                 'planned_at' => $plannedAt->utc(), 'status' => 'pending',
             ]);
         });
+        app(RealtimeActivity::class)->notify($other, 'PLAN');
+        $this->broadcastChatUpdate($conversation, $viewer, $other);
         $this->planModalOpen = false;
         $this->dispatch('toast', message: 'Plan sent. It will appear on both maps after the other person accepts.');
     }
@@ -314,6 +360,10 @@ class ChatPage extends Component
         abort_unless((int) $plan->accepted_by_id === auth()->id(), 403);
         abort_unless($plan->status === 'pending' && $plan->planned_at->isFuture(), 409);
         $plan->update(['status' => $accept ? 'accepted' : 'declined', 'responded_at' => now()]);
+        $viewer = auth()->user();
+        app(RealtimeActivity::class)->notify($conversation->otherUser($viewer), 'PLAN');
+        app(RealtimeActivity::class)->notify($viewer, 'PLAN');
+        $this->broadcastChatUpdate($conversation, $viewer, $conversation->otherUser($viewer));
         $this->dispatch('toast', message: $accept ? 'Cafe plan accepted. It is now on both maps.' : 'Cafe plan declined.');
     }
 
@@ -331,6 +381,20 @@ class ChatPage extends Component
         $this->assertNotBlocked(auth()->user(), $conversation->otherUser(auth()->user()));
 
         return $conversation;
+    }
+
+    private function broadcastChatUpdate(Conversation $conversation, User $sender, User $recipient, ?Message $message = null): void
+    {
+        try {
+            event(new ChatUpdated(
+                $conversation->conversation_uuid,
+                $sender->profile_uuid,
+                $recipient->profile_uuid,
+                $message?->id,
+            ));
+        } catch (\Throwable $exception) {
+            report($exception);
+        }
     }
 
     public function toggleMuteConversation(): void
