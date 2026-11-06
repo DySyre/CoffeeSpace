@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\User;
 use App\Notifications\ActivityEmailNotification;
 use App\Notifications\ActivityNotification;
+use Throwable;
 
 class ActivityNotifier
 {
@@ -38,17 +39,25 @@ class ActivityNotifier
             default => null,
         };
 
-        if (! $allowEmail || ! $emailPreference || ! $recipient->hasVerifiedEmail() || ! $recipient->notificationSettings->{$emailPreference}) {
+        $emailEnabled = $emailPreference
+            ? (bool) $recipient->notificationSettings()->value($emailPreference)
+            : false;
+
+        if (! $allowEmail || ! $emailPreference || ! $recipient->hasVerifiedEmail() || ! $emailEnabled) {
             return;
         }
 
-        $recipient->notify((new ActivityEmailNotification(
-            $category,
-            $heading,
-            $actorName,
-            $itemTitle,
-            $actionLabel,
-            $url,
-        ))->afterCommit());
+        try {
+            $recipient->notify(new ActivityEmailNotification(
+                $category,
+                $heading,
+                $actorName,
+                $itemTitle,
+                $actionLabel,
+                $url,
+            ));
+        } catch (Throwable $exception) {
+            report($exception);
+        }
     }
 }

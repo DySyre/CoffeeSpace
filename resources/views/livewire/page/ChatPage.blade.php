@@ -69,11 +69,11 @@
                             @if($message->sender_id !== $viewer->id)<x-user-avatar :user="$message->sender"/>@endif
                             <div @class(['max-w-[min(82%,520px)] rounded-md px-4 py-3', 'bg-brand text-on-brand' => $message->sender_id === $viewer->id && $message->type !== 'cafe', 'bg-soft text-ink' => $message->sender_id !== $viewer->id || $message->type === 'cafe'])>
                                 @if($message->type === 'cafe' && is_array($message->metadata))
-                                    <div class="min-w-64">
+                                    <div class="w-full min-w-0 max-w-full">
                                         <p class="text-[10px] font-semibold uppercase tracking-widest text-brand">Cafe recommendation</p>
                                         <h3 class="mt-1 font-display text-lg font-semibold">{{ $message->metadata['name'] }}</h3>
                                         <p class="mt-1 text-xs leading-5 text-muted">{{ $message->metadata['address'] ?: 'Address not listed' }}</p>
-                                        <div class="mt-3 flex flex-wrap gap-2">
+                                        <div class="mt-3 flex min-w-0 flex-wrap items-start gap-2">
                                             @if($activePlan && $activePlan->message_id !== $message->id)
                                                 <span class="rounded-sm bg-page px-3 py-2 text-xs text-muted">Another cafe plan is active in this conversation.</span>
                                             @elseif($activePlan && $activePlan->status === 'pending')
@@ -82,7 +82,7 @@
                                                     <button type="button" wire:click="respondToCafePlan({{ $activePlan->id }}, true)" class="min-h-10 rounded-sm bg-brand px-3 text-xs font-medium text-on-brand">Accept plan</button>
                                                     <button type="button" wire:click="respondToCafePlan({{ $activePlan->id }}, false)" class="min-h-10 rounded-sm border border-line px-3 text-xs">Decline</button>
                                                 @else
-                                                    <span class="rounded-sm bg-page px-3 py-2 text-xs text-muted">Waiting for {{ $conversation->otherUser($viewer)->name }} · {{ $activePlan->planned_at->timezone(config('app.timezone'))->format('M j, g:i a') }}</span>
+                                                    <span class="w-full min-w-0 whitespace-normal break-words rounded-sm bg-page px-3 py-2 text-xs leading-5 text-muted">Waiting for {{ $conversation->otherUser($viewer)->name }} · {{ $activePlan->planned_at->timezone(config('app.timezone'))->format('M j, g:i a') }}</span>
                                                 @endif
                                             @elseif($activePlan && $activePlan->status === 'accepted')
                                                 <span class="rounded-sm bg-page px-3 py-2 text-xs font-medium text-brand">Accepted · {{ $activePlan->planned_at->timezone(config('app.timezone'))->format('M j, g:i a') }}</span>

@@ -2,15 +2,11 @@
 
 namespace App\Notifications;
 
-use Illuminate\Bus\Queueable;
-use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 
-class ActivityEmailNotification extends Notification implements ShouldQueue
+class ActivityEmailNotification extends Notification
 {
-    use Queueable;
-
     public function __construct(
         public readonly string $category,
         public readonly string $heading,

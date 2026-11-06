@@ -173,6 +173,8 @@ html.dark .theme-toggle-moon { opacity: 1; transform: scale(1) rotate(0); }
     100% { transform: scale(1); }
 }
 .feed-action-pop { transform-origin: center; animation: feed-action-pop 380ms cubic-bezier(.16, 1, .3, 1) both; }
+@keyframes saved-post-line-sweep { 0% { transform: scaleX(0); opacity: 1; } 70% { transform: scaleX(1); opacity: 1; } 100% { transform: scaleX(1); opacity: 0; } }
+.saved-post-line-active { animation: saved-post-line-sweep 650ms cubic-bezier(.16, 1, .3, 1) both; }
 @keyframes like-heart-pop { 0% { transform: scale(.72); } 42% { transform: scale(1.48) rotate(-8deg); } 72% { transform: scale(.94) rotate(3deg); } 100% { transform: scale(1); } }
 .like-heart-pop { color: #e5484d; fill: #e5484d; transform-origin: center; animation: like-heart-pop 460ms cubic-bezier(.16, 1, .3, 1) both; }
 .like-pop-rays { position: absolute; inset: 0; pointer-events: none; }
@@ -255,7 +257,7 @@ html.dark .theme-toggle-moon { opacity: 1; transform: scale(1) rotate(0); }
     .chat-search-sweep { animation: none; }
     .coffee-toast-stream, .coffee-toast-fill, .coffee-toast-steam path { animation: none; }
     .coffee-spill-cup, .coffee-spill-pour, .coffee-spill-drop { animation-duration: 1ms; }
-    .feed-action-pop, .feed-action-shrink, .inbox-pop, .nav-tab-press, .nav-icon-discover svg.nav-tab-press path:first-child, .nav-icon-map svg.nav-tab-press, .nav-icon-post svg.nav-tab-press, .nav-icon-budget svg.nav-tab-press path:first-child, .nav-icon-budget.nav-tab-active .nav-wallet-coin, .nav-icon-profile svg.nav-tab-press circle, .nav-icon-profile.nav-tab-active .nav-profile-rays i { animation: none; }
+    .feed-action-pop, .feed-action-shrink, .saved-post-line-active, .inbox-pop, .nav-tab-press, .nav-icon-discover svg.nav-tab-press path:first-child, .nav-icon-map svg.nav-tab-press, .nav-icon-post svg.nav-tab-press, .nav-icon-budget svg.nav-tab-press path:first-child, .nav-icon-budget.nav-tab-active .nav-wallet-coin, .nav-icon-profile svg.nav-tab-press circle, .nav-icon-profile.nav-tab-active .nav-profile-rays i { animation: none; }
     .like-heart-pop, .photo-like-pop { animation-duration: 1ms; }
     .like-rays-active i { animation: none; opacity: .75; transform: translate(-50%, -50%) rotate(var(--ray-angle)) translateY(-9px); }
     .post-tags-chevron { transition-duration: 1ms; }

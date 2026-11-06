@@ -74,9 +74,9 @@ class Profile extends Component
         $this->validateOnly($property, [$property => ['required', 'boolean']]);
 
         $user = Auth::user();
-        $settings = $user->notificationSettings()->firstOrNew();
-        $settings->forceFill([$column => $this->{$property}]);
-        $user->notificationSettings()->save($settings);
+        $user->notificationSettings()->updateOrCreate([], [
+            $column => $this->{$property},
+        ]);
     }
 
     /**
