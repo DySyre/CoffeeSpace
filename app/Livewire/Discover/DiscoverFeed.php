@@ -357,11 +357,11 @@ class DiscoverFeed extends Component
         $postIds = $this->cachedPostIds();
         $loadedPosts = Post::visibleTo(auth()->user())->whereIn('posts.id', $postIds)
             ->where('visibility', '!=', 'private')->whereNull('archived_at')
-            ->with(['user:id,name,profile_uuid', 'media', 'amenityMedia'])->withCount(['comments', 'likes'])->get()->keyBy('id');
+            ->with(['user:id,name,profile_uuid,profile_photo', 'media', 'amenityMedia'])->withCount(['comments', 'likes'])->get()->keyBy('id');
         $posts = collect($postIds)->map(fn (int $id) => $loadedPosts->get($id))->filter()->values();
         $stories = $posts->take($this->visibleCount)->map(fn (Post $post) => [
             'post_url' => $post->postUrl(), 'amenities' => $post->amenities ?? [], 'amenity_media' => $post->amenityMedia->map(fn ($item) => ['amenity_key' => $item->amenity_key, 'url' => route('post-media.show', $item)])->all(), 'visibility' => $post->visibility, 'profile_url' => $post->user->profileUrl(), 'id' => $post->id, 'author_id' => $post->user_id, 'name' => $post->user->name, 'handle' => $post->author_handle,
-            'initials' => $post->user->initials(), 'city' => $post->city,
+            'initials' => $post->user->initials(), 'profile_photo_url' => $post->user->profilePhotoUrl(), 'city' => $post->city,
             'time' => $post->created_at->diffForHumans(), 'cafe' => $post->cafe_name,
             'title' => $post->title, 'story' => $post->body, 'image' => $post->image_path,
             'alt' => $post->image_alt, 'rating' => $post->rating,
