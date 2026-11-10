@@ -1,6 +1,8 @@
 <div class="mx-auto max-w-6xl pb-10 text-ink">
     <div class="flex flex-wrap items-end justify-between gap-4">
-        <div><h1 class="font-display text-3xl sm:text-4xl">Coffee Budget</h1><p class="mt-2 text-sm text-muted">Track your spending and revisit your coffee journey.</p></div>
+        <div><h1 class="font-display text-3xl sm:text-4xl">Coffee Budget</h1>
+            {{-- <p class="mt-2 text-sm text-muted">Track your spending and revisit your coffee journey.</p> --}}
+        </div>
         <a href="#add-purchase" x-on:click="document.getElementById('add-purchase').open = true" class="inline-flex size-11 items-center justify-center rounded-sm bg-brand text-on-brand transition-transform duration-150 active:scale-90" aria-label="Add a purchase" title="Add a purchase"><x-lucide-tag class="size-5 shrink-0" aria-hidden="true" /></a>
     </div>
     @if (session('budget_message')) <p role="status" class="mt-5 rounded-sm bg-soft px-4 py-3 text-sm text-ink">{{ session('budget_message') }}</p> @endif

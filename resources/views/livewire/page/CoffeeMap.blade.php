@@ -4,9 +4,9 @@
     x-on:map-place-saved.window="addWantToGoPlace($event.detail.place)"
     class="space-y-6"
 >
-    <p class="text-[10px] font-semibold tracking-[.2em] text-muted uppercase">Coffee Map</p>
-    <h1 class="mt-2 font-display text-4xl">Find your next <em class="text-brand">coffee corner.</em></h1>
-    <p class="mt-3 mb-7 max-w-2xl text-sm leading-6 text-muted">Explore places shared by the CoffeeSpace community. Your location is used only when you ask to search nearby, and is not saved to your profile.</p>
+    {{-- <p class="text-[10px] font-semibold tracking-[.2em] text-muted uppercase">Coffee Map</p> --}}
+    <h1 class="mt-2 font-display text-4xl"><em class="text-brand">Coffee Map</em></h1>
+    {{-- <p class="mt-3 mb-7 max-w-2xl text-sm leading-6 text-muted">Explore places shared by the CoffeeSpace community. Your location is used only when you ask to search nearby, and is not saved to your profile.</p> --}}
 
     <div class="grid gap-6 xl:grid-cols-[minmax(0,1.5fr)_minmax(320px,.8fr)]">
         <section class="min-w-0 overflow-hidden rounded-md border border-line bg-surface" aria-label="CoffeeSpace map">

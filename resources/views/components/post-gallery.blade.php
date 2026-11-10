@@ -2,11 +2,13 @@
 <section x-data="{
     active: 0,
     photoLikeVisible: false,
+    arrowOpacity: 1,
     mediaToPreload: @js(collect($media)->map(fn ($item) => ['url' => $item['url'], 'kind' => $item['kind'], 'mime_type' => $item['mime_type'] ?? null])->values()),
     preloadedMedia: {},
     touchStartX: null,
     touchStartY: 0,
     init() {
+        this.scheduleArrowFade();
         if (typeof IntersectionObserver === 'undefined') {
             if (!this.$el.closest('dialog') || this.$el.closest('dialog').open) this.preloadNext();
             return;
@@ -22,7 +24,13 @@
     showMedia(index) {
         this.$refs.items.querySelectorAll('video').forEach(video => video.pause());
         this.active = (index + this.mediaToPreload.length) % this.mediaToPreload.length;
+        this.scheduleArrowFade();
         this.$nextTick(() => this.preloadNext());
+    },
+    scheduleArrowFade() {
+        this.arrowOpacity = 1;
+        clearTimeout(this.arrowFadeTimer);
+        this.arrowFadeTimer = setTimeout(() => this.arrowOpacity = .75, 3000);
     },
     startSwipe(event) {
         if (event.touches.length !== 1) return;
@@ -75,12 +83,12 @@
         @endforeach
     </div>
     @if(count($media) > 1)
-        <button type="button" x-on:click="showMedia(active - 1)" aria-label="Previous photo or video" title="Previous photo" class="absolute left-3 top-1/2 z-10 flex size-11 -translate-y-1/2 items-center justify-center rounded-full border border-line bg-surface/95 text-brand shadow-sm transition hover:bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand motion-reduce:transition-none">
-            <x-coffee-icon name="chevron-left"/>
+        <button type="button" x-on:click="showMedia(active - 1)" x-bind:style="'opacity: ' + arrowOpacity" aria-label="Previous photo or video" title="Previous photo" class="absolute left-3 top-1/2 z-10 flex size-11 -translate-y-1/2 items-center justify-center bg-transparent text-brand transition-opacity duration-500 hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand motion-reduce:transition-none">
+            <x-coffee-icon name="chevron-left" class="size-7"/>
         </button>
-        <button type="button" x-on:click="showMedia(active + 1)" aria-label="Next photo or video" title="Next photo" class="absolute right-3 top-1/2 z-10 flex size-11 -translate-y-1/2 items-center justify-center rounded-full border border-line bg-surface/95 text-brand shadow-sm transition hover:bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand motion-reduce:transition-none">
-            <x-coffee-icon name="chevron-right"/>
+        <button type="button" x-on:click="showMedia(active + 1)" x-bind:style="'opacity: ' + arrowOpacity" aria-label="Next photo or video" title="Next photo" class="absolute right-3 top-1/2 z-10 flex size-11 -translate-y-1/2 items-center justify-center bg-transparent text-brand transition-opacity duration-500 hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand motion-reduce:transition-none">
+            <x-coffee-icon name="chevron-right" class="size-7"/>
         </button>
-        <span class="pointer-events-none absolute bottom-3 left-1/2 z-10 -translate-x-1/2 rounded-full bg-surface/95 px-3 py-1 text-xs text-ink shadow-sm" aria-live="polite" aria-atomic="true"><span x-text="active + 1">1</span> / {{ count($media) }}</span>
+        <span class="pointer-events-none absolute top-3 right-3 z-10 rounded-full bg-surface/75 px-3 py-1 text-xs text-ink shadow-sm" aria-live="polite" aria-atomic="true"><span x-text="active + 1">1</span> / {{ count($media) }}</span>
     @endif
 </section>
