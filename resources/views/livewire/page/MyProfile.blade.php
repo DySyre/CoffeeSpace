@@ -107,7 +107,7 @@
                             @if($cover && $cover->kind === 'image')
                                 <img src="{{ route('post-media.show', $cover) }}" alt="" loading="lazy" class="size-full object-cover transition duration-200 hover:scale-105 motion-reduce:transition-none">
                             @elseif($cover)
-                                <span class="flex size-full flex-col items-center justify-center gap-2 p-2"><x-coffee-icon name="video" class="size-7"/><span class="line-clamp-2 text-xs">{{ $post->title }}</span></span>
+                                <x-video-thumbnail :src="route('post-media.show', $cover)" :title="$post->title"/>
                             @elseif($post->image_path)
                                 <img src="{{ asset('images/'.$post->image_path) }}" alt="" loading="lazy" class="size-full object-cover">
                             @else
@@ -124,7 +124,7 @@
                                 <img src="{{ asset('images/'.$post->image_path) }}" alt="{{ $post->image_alt ?: $post->title }}" loading="lazy" class="w-full">
                             @endif
                             <div class="p-5"><h2 id="story-title-{{ $post->id }}" class="break-words font-display text-xl font-semibold">{{ $post->title }}</h2><p class="mt-2 text-sm text-muted">{{ $post->cafe_name }} &middot; {{ $post->city }}</p><p class="mt-4 whitespace-pre-line break-words text-sm leading-7">{{ $post->body }}</p><x-post-amenities :amenities="$post->amenities ?? []" :amenity-media="$post->amenityMedia->map(fn ($item) => ['amenity_key' => $item->amenity_key, 'url' => route('post-media.show', $item)])->all()"/><p class="mt-4 text-xs text-muted">{{ $post->created_at->format('M j, Y') }} &middot; {{ match ($post->visibility) { 'private' => 'Only me', 'followers' => 'Followers only', default => 'Public' } }}</p></div>
-                            @if(!$post->trashed())<div class="flex items-center justify-between border-t border-line px-4 py-2"><button type="button" x-on:click="closeStory(); openProfileShare(@js($post->postUrl()), @js($post->title), 'post')" class="flex min-h-11 items-center gap-2 px-2 text-sm text-brand"><x-coffee-icon name="share"/>Share post</button><a href="{{ $post->postUrl() }}" wire:navigate class="min-h-11 px-2 py-3 text-sm text-muted">Go to post</a></div>@endif
+                            @if(!$post->trashed())<div class="flex items-center justify-between border-t border-line px-4 py-2"><button type="button" x-on:click="closeStory(); openProfileShare(@js($post->postUrl()), @js($post->title), 'post')" class="flex min-h-11 items-center gap-2 px-2 text-sm text-brand"><x-coffee-icon name="share"/>Share post</button><a href="{{ $post->postUrl() }}" wire:navigate class="inline-flex min-h-11 items-center gap-2 px-2 py-3 text-sm text-muted hover:text-brand">Go to post<x-coffee-icon name="arrow" class="size-4"/></a></div>@endif
                         </dialog>
                     </article>
                 @endforeach
@@ -144,6 +144,8 @@
                         @if($cover && $cover->kind === 'image')
                             <img src="{{ route('post-media.show', $cover) }}" alt="" loading="lazy" x-show="!coverFailed" x-on:error="coverFailed = true" class="size-full object-cover">
                             <span x-cloak x-show="coverFailed" class="flex size-full flex-col items-center justify-center gap-2 p-3 text-center"><x-coffee-icon name="image" class="size-7"/><span class="line-clamp-3 text-xs">{{ $post->title }}</span></span>
+                        @elseif($cover)
+                            <x-video-thumbnail :src="route('post-media.show', $cover)" :title="$post->title"/>
                         @elseif(!$cover && $post->image_path)
                             <img src="{{ asset('images/'.$post->image_path) }}" alt="" loading="lazy" x-show="!coverFailed" x-on:error="coverFailed = true" class="size-full object-cover">
                             <span x-cloak x-show="coverFailed" class="flex size-full flex-col items-center justify-center gap-2 p-3 text-center"><x-coffee-icon name="image" class="size-7"/><span class="line-clamp-3 text-xs">{{ $post->title }}</span></span>

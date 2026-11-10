@@ -56,7 +56,7 @@ class MyProfile extends Component
     public function mount(User $user): void
     {
         $profile = $user;
-        abort_unless($profile, 404);
+        abort_unless($profile->is_active, 404);
         $this->profileUserId = $profile->id;
     }
 
@@ -336,6 +336,7 @@ class MyProfile extends Component
     public function render(): View
     {
         $user = User::findOrFail($this->profileUserId);
+        abort_unless($user->is_active, 404);
         $isOwner = auth()->id() === $user->id;
         $viewer = auth()->user();
         $blockedByViewer = $viewer && $viewer->hasBlocked($user);

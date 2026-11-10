@@ -194,7 +194,7 @@ class CoffeeMap extends Component
         $savedPosts = $viewer
             ? $viewer->savedPosts()->visibleTo($viewer)->whereNull('archived_at')->whereNotNull('latitude')->whereNotNull('longitude')->with('user:id,name,profile_uuid')->orderByDesc('posts.id')->limit(250)->get()
             : collect();
-        $savedPostIds = $savedPosts->modelKeys();
+        $savedPostIds = $savedPosts->pluck('id')->map(fn ($id) => (int) $id)->all();
         $mappedPosts = $mappedPosts->concat($savedPosts)->unique('id')->sortByDesc('id')->take(250);
 
         $postPins = $mappedPosts->groupBy(fn (Post $post) => $this->mapPlaceKey($post->cafe_name, (float) $post->latitude, (float) $post->longitude))

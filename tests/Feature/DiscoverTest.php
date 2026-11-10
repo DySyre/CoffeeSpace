@@ -123,8 +123,16 @@ test('personal sections require authentication', function (string $url) {
     $this->get($url)->assertRedirect(route('login'));
 })->with(['/experiences/create', '/budget', '/profile']);
 
-test('the area map is public', function () {
-    $this->get('/map')->assertOk()->assertSee('OpenStreetMap contributors');
+test('guests are told to log in before opening the coffee map', function () {
+    $this->get('/map')
+        ->assertRedirect(route('login'))
+        ->assertSessionHas('status', 'You must log in before opening the Coffee Map.');
+});
+
+test('signed in users can open the coffee map', function () {
+    $user = User::factory()->create(['is_active' => true]);
+
+    $this->actingAs($user)->get('/map')->assertOk()->assertSee('OpenStreetMap contributors');
 });
 
 test('signed in users see the correct personal milestone preview', function (string $url, string $message) {

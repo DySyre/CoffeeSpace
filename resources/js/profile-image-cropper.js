@@ -12,7 +12,7 @@ export default function profileImageCropper(wire, options = {}) {
         editMediaPreviews: [], editMediaError: '', postMediaUploading: false, postMediaProgress: 0,
         postRatio: 'original', postRatioLocked: false, originalRatio: 1,
         cropKind: 'photo', cropReady: false, cropBusy: false, cropError: '', cropProgress: 0,
-        zoom: 1, offsetX: 0, offsetY: 0, baseScale: 1, disposed: false,
+        zoomExpanded: false, zoom: 1, offsetX: 0, offsetY: 0, baseScale: 1, disposed: false,
 
         async openProfileShare(url, name = 'CoffeeSpace', kind = 'profile') {
             this.shareKind = kind;
@@ -126,6 +126,7 @@ export default function profileImageCropper(wire, options = {}) {
             this.cropError = '';
             this.cropKind = kind;
             this.cropReady = false;
+            this.zoomExpanded = false;
             this.$refs.cropDialog.showModal();
             const token = ++request;
             if (file.size > 10 * 1024 * 1024 || !/\.(jpe?g|png)$/i.test(file.name) || (file.type && !['image/jpeg', 'image/png'].includes(file.type))) {

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Auth;
 
 use App\Auth\PendingEmailVerification;
 use App\Notifications\VerifyEmailNotification;
+use App\Services\EmailDeliveryLimiter;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -32,21 +33,28 @@ class RegistrationController
         $cacheKey = 'pending-registration:'.$id;
         $expiresAt = now()->addMinutes((int) config('auth.verification.expire', 60));
 
-        Cache::put($cacheKey, Crypt::encryptString(json_encode([
-            'name' => $validated['name'],
-            'email' => $validated['email'],
-            'password' => Hash::make($validated['password']),
-        ], JSON_THROW_ON_ERROR)), $expiresAt);
-
         try {
-            (new PendingEmailVerification($id, $validated['name'], $validated['email']))
-                ->notify(new VerifyEmailNotification);
+            $sent = app(EmailDeliveryLimiter::class)->sendVerification(
+                new PendingEmailVerification($id, $validated['name'], $validated['email']),
+                $validated['email'],
+                new VerifyEmailNotification,
+                fn () => Cache::put($cacheKey, Crypt::encryptString(json_encode([
+                    'name' => $validated['name'],
+                    'email' => $validated['email'],
+                    'password' => Hash::make($validated['password']),
+                ], JSON_THROW_ON_ERROR)), $expiresAt),
+            );
         } catch (Throwable $exception) {
             Cache::forget($cacheKey);
             report($exception);
 
             return back()->withInput($request->only('name', 'email'))
                 ->withErrors(['email' => 'We could not send the verification link. Please try again shortly.']);
+        }
+
+        if (! $sent) {
+            return back()->withInput($request->only('name', 'email'))
+                ->withErrors(['email' => 'A verification link was sent to this address recently. Please wait five minutes before requesting another.']);
         }
 
         return redirect()->route('register')->with(
