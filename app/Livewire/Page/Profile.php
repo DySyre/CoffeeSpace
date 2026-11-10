@@ -5,6 +5,8 @@ namespace App\Livewire\Page;
 use App\Auth\PendingEmailVerification;
 use App\Models\User;
 use App\Notifications\EmailChangeVerificationNotification;
+use App\Notifications\VerifyEmailNotification;
+use App\Services\EmailDeliveryLimiter;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
@@ -132,30 +134,40 @@ class Profile extends Component
     private function sendEmailChangeVerification(User $user, string $email): void
     {
         $userCacheKey = 'pending-email-change-user:'.$user->id;
-        $previousId = Cache::get($userCacheKey);
-
-        if (is_string($previousId)) {
-            Cache::forget('pending-email-change:'.$previousId);
-        }
-
         $id = 'email-change-'.$user->id.'-'.hash('sha256', $email);
         $cacheKey = 'pending-email-change:'.$id;
         $expiresAt = now()->addMinutes((int) config('auth.verification.expire', 60));
 
-        Cache::put($cacheKey, Crypt::encryptString(json_encode([
-            'user_id' => $user->id,
-            'email' => $email,
-        ], JSON_THROW_ON_ERROR)), $expiresAt);
-        Cache::put($userCacheKey, $id, $expiresAt);
-
         try {
-            (new PendingEmailVerification($id, $user->name, $email))
-                ->notify(new EmailChangeVerificationNotification);
+            $sent = app(EmailDeliveryLimiter::class)->sendVerification(
+                new PendingEmailVerification($id, $user->name, $email),
+                $email,
+                new EmailChangeVerificationNotification,
+                function () use ($user, $userCacheKey, $id, $cacheKey, $email, $expiresAt): void {
+                    $previousId = Cache::get($userCacheKey);
+
+                    if (is_string($previousId)) {
+                        Cache::forget('pending-email-change:'.$previousId);
+                    }
+
+                    Cache::put($cacheKey, Crypt::encryptString(json_encode([
+                        'user_id' => $user->id,
+                        'email' => $email,
+                    ], JSON_THROW_ON_ERROR)), $expiresAt);
+                    Cache::put($userCacheKey, $id, $expiresAt);
+                },
+            );
         } catch (Throwable $exception) {
             Cache::forget($cacheKey);
             Cache::forget($userCacheKey);
             report($exception);
             $this->addError('email', 'We could not send the verification link. Please try again shortly.');
+
+            return;
+        }
+
+        if (! $sent) {
+            $this->addError('email', 'A verification link was sent to this address recently. Please wait five minutes before requesting another.');
 
             return;
         }
@@ -181,7 +193,17 @@ class Profile extends Component
             return;
         }
 
-        $user->sendEmailVerificationNotification();
+        $sent = app(EmailDeliveryLimiter::class)->sendVerification(
+            $user,
+            $user->getEmailForVerification(),
+            new VerifyEmailNotification,
+        );
+
+        if (! $sent) {
+            $this->addError('email', 'A verification link was sent recently. Please wait five minutes before requesting another.');
+
+            return;
+        }
 
         Session::flash('status', 'verification-link-sent');
         $this->dispatch('verification-email-sent');

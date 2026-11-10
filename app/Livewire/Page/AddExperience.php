@@ -192,9 +192,14 @@ class AddExperience extends Component
         }
 
         $rateKey = 'create-post:'.auth()->id();
-        if (RateLimiter::tooManyAttempts($rateKey, 5)) {
-            $this->addError('title', 'Please wait a minute before publishing another post.');
-            $this->dispatch('post-toast', kind: 'error', title: 'Please wait', message: 'Please wait a minute before publishing another post.');
+        if (RateLimiter::tooManyAttempts($rateKey, 1)) {
+            $seconds = RateLimiter::availableIn($rateKey);
+            $wait = $seconds >= 60
+                ? ceil($seconds / 60).' '.(ceil($seconds / 60) === 1 ? 'minute' : 'minutes')
+                : 'less than a minute';
+            $message = 'You can publish another post in '.$wait.'.';
+            $this->addError('title', $message);
+            $this->dispatch('post-toast', kind: 'error', title: 'Please wait', message: $message);
 
             return;
         }
@@ -236,7 +241,7 @@ class AddExperience extends Component
             return;
         }
 
-        RateLimiter::hit($rateKey, 60);
+        RateLimiter::hit($rateKey, 300);
         session()->flash('post-status', match ($this->visibility) {
             'private' => 'Your private post has been saved. It will not appear in the public feed.',
             'followers' => 'Your post has been shared with your followers only.',

@@ -268,3 +268,18 @@ html.dark .theme-toggle-moon { opacity: 1; transform: scale(1) rotate(0); }
 @keyframes chat-search-sweep { 0%, 100% { transform: translateX(-3px); } 50% { transform: translateX(3px); } }
 .chat-search-sweep { animation: chat-search-sweep 500ms ease-in-out infinite; }
 
+
+/* Reveal zoom controls without jumping the crop dialog's layout. */
+.crop-zoom-panel {
+    display: grid;
+    grid-template-rows: 0fr;
+    opacity: 0;
+    transition: grid-template-rows 220ms cubic-bezier(.16, 1, .3, 1), opacity 180ms ease-out;
+}
+.crop-zoom-panel-open {
+    grid-template-rows: 1fr;
+    opacity: 1;
+}
+@media (prefers-reduced-motion: reduce) {
+    .crop-zoom-panel { transition: none; }
+}

@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Notifications\ResetPasswordNotification;
 use App\Notifications\VerifyEmailNotification;
+use App\Services\EmailDeliveryLimiter;
 use Database\Factories\UserFactory;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -37,7 +38,11 @@ class User extends Authenticatable implements MustVerifyEmail
 
     public function sendEmailVerificationNotification(): void
     {
-        $this->notify(new VerifyEmailNotification);
+        app(EmailDeliveryLimiter::class)->sendVerification(
+            $this,
+            $this->getEmailForVerification(),
+            new VerifyEmailNotification,
+        );
     }
 
     public function sendPasswordResetNotification(#[\SensitiveParameter] $token): void

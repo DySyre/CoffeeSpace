@@ -4,6 +4,7 @@ use App\Http\Controllers\ActivityPresenceController;
 use App\Http\Controllers\NotificationRedirectController;
 use App\Http\Controllers\PostMediaController;
 use App\Http\Controllers\ProfilePhotoController;
+use App\Http\Middleware\RequireLoginForCoffeeMap;
 use App\Livewire\Page\Account;
 use App\Livewire\Page\AddExperience;
 use App\Livewire\Page\Admin;
@@ -21,7 +22,7 @@ use Illuminate\Support\Facades\Route;
 // Public pages.
 Route::get('/', Discover::class)->name('home');
 Route::get('/posts/{post:post_uuid}', PostDetail::class)->whereUuid('post')->name('post.show');
-Route::get('/map', CoffeeMap::class)->name('coffee.map');
+Route::get('/map', CoffeeMap::class)->middleware(RequireLoginForCoffeeMap::class)->name('coffee.map');
 Route::get('/profile/{user:profile_uuid}', MyProfile::class)->whereUuid('user')->name('profile.show');
 Route::get('/profiles/{user:profile_uuid}/photo', [ProfilePhotoController::class, 'publicPhoto'])->whereUuid('user')->name('profile.public-photo');
 Route::get('/profiles/{user:profile_uuid}/cover', [ProfilePhotoController::class, 'publicPhoto'])->whereUuid('user')->defaults('kind', 'cover')->name('profile.public-cover');

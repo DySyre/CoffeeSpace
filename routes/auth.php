@@ -4,6 +4,8 @@ use App\Http\Controllers\Auth\PasswordController;
 use App\Http\Controllers\Auth\RegistrationController;
 use App\Http\Controllers\Auth\SessionController;
 use App\Http\Controllers\Auth\VerifyEmailController;
+use App\Notifications\VerifyEmailNotification;
+use App\Services\EmailDeliveryLimiter;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -33,9 +35,15 @@ Route::middleware('auth')->group(function () {
         if ($request->user()->hasVerifiedEmail()) {
             return redirect()->route('dashboard');
         }
-        $request->user()->sendEmailVerificationNotification();
+        $sent = app(EmailDeliveryLimiter::class)->sendVerification(
+            $request->user(),
+            $request->user()->getEmailForVerification(),
+            new VerifyEmailNotification,
+        );
 
-        return back()->with('status', 'Verification link sent.');
+        return back()->with('status', $sent
+            ? 'Verification link sent.'
+            : 'A verification link was sent recently. Please wait five minutes before requesting another.');
     })->middleware('throttle:6,1')->name('verification.send');
 
     Route::view('confirm-password', 'auth.confirm-password')->name('password.confirm');

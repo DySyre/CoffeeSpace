@@ -48,14 +48,18 @@ class ActivityNotifier
         }
 
         try {
-            $recipient->notify(new ActivityEmailNotification(
+            app(EmailDeliveryLimiter::class)->sendActivity(
+                $recipient,
                 $category,
-                $heading,
-                $actorName,
-                $itemTitle,
-                $actionLabel,
-                $url,
-            ));
+                new ActivityEmailNotification(
+                    $category,
+                    $heading,
+                    $actorName,
+                    $itemTitle,
+                    $actionLabel,
+                    $url,
+                ),
+            );
         } catch (Throwable $exception) {
             report($exception);
         }

@@ -22,6 +22,7 @@
         'budget' => 'wallet',
         'profile' => 'user-round',
         'search' => 'search',
+        'zoom' => 'zoom-in',
         'heart' => 'heart',
         'bookmark' => 'bookmark',
         'arrow' => 'arrow-right',
@@ -29,6 +30,7 @@
         'share' => 'share-2',
         'star' => 'star',
         'save' => 'save',
+        'circle-cancel' => 'circle-x',
         'archive' => 'archive',
         'trash' => 'trash-2',
         'restore' => 'archive-restore',
@@ -39,6 +41,7 @@
         'plug' => 'plug',
         'menu' => 'utensils',
         'clock' => 'clock',
+        'chevron-left' => 'chevron-left',
         'chevron-right' => 'chevron-right',
         'chevron-down' => 'chevron-down',
     ][$name] ?? 'coffee';
