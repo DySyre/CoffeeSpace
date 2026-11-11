@@ -7,6 +7,7 @@
     preloadedMedia: {},
     touchStartX: null,
     touchStartY: 0,
+    suppressTapUntil: 0,
     init() {
         this.scheduleArrowFade();
         if (typeof IntersectionObserver === 'undefined') {
@@ -23,6 +24,7 @@
     },
     showMedia(index) {
         this.$refs.items.querySelectorAll('video').forEach(video => video.pause());
+        this.photoLikeVisible = false;
         this.active = (index + this.mediaToPreload.length) % this.mediaToPreload.length;
         this.scheduleArrowFade();
         this.$nextTick(() => this.preloadNext());
@@ -43,6 +45,7 @@
         const deltaY = event.changedTouches[0].clientY - this.touchStartY;
         this.touchStartX = null;
         if (Math.abs(deltaX) < 48 || Math.abs(deltaX) < Math.abs(deltaY) * 1.2) return;
+        this.suppressTapUntil = Date.now() + 500;
         this.showMedia(this.active + (deltaX < 0 ? 1 : -1));
     },
     preloadNext() {
@@ -65,30 +68,38 @@
         this.preloadedMedia[index] = true;
     }
 }" class="relative bg-soft" aria-label="Post photos and videos">
-    <div x-ref="items" class="relative touch-pan-y" x-on:touchstart.passive="startSwipe($event)" x-on:touchend.passive="endSwipe($event)" x-on:touchcancel="touchStartX = null">
+    <div class="relative touch-pan-y overflow-hidden" x-on:touchstart.passive="startSwipe($event)" x-on:touchend.passive="endSwipe($event)" x-on:touchcancel="touchStartX = null">
+        <div x-ref="items" x-bind:style="'width: ' + (mediaToPreload.length * 100) + '%; transform: translateX(-' + (active * 100 / mediaToPreload.length) + '%)'" class="flex transition-transform duration-300 ease-out motion-reduce:transition-none">
         @foreach($media as $index => $item)
-            <div data-media-index="{{ $index }}" x-show="active === {{ $index }}" @if($index > 0) x-cloak @endif>
+            <div data-media-index="{{ $index }}" style="flex: 0 0 calc(100% / {{ count($media) }})" class="min-w-0">
                 @if($item['kind'] === 'image')
                     <div class="relative" @if($likePostId) x-on:dblclick.prevent.stop="if (!photoLikeVisible) { photoLikeVisible = true; $wire.likePost({{ $likePostId }}); setTimeout(() => photoLikeVisible = false, 620) }" @endif>
                         <img src="{{ $item['url'] }}" alt="{{ $title }} &mdash; photo {{ $index + 1 }}" loading="lazy" draggable="false" class="h-auto w-full select-none object-contain">
+                        @if(count($media) > 1)
+                            <button type="button" x-on:click.stop="if (Date.now() > suppressTapUntil) showMedia(active - 1)" x-on:dblclick.stop aria-label="Previous photo" title="Previous photo" x-bind:style="'opacity: ' + arrowOpacity" class="absolute inset-y-0 left-0 z-10 flex w-1/5 items-center justify-start bg-transparent pl-2 text-brand transition-opacity duration-500 hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-brand motion-reduce:transition-none"><x-coffee-icon name="chevron-left" class="size-7"/></button>
+                            <button type="button" x-on:click.stop="if (Date.now() > suppressTapUntil) showMedia(active + 1)" x-on:dblclick.stop aria-label="Next photo" title="Next photo" x-bind:style="'opacity: ' + arrowOpacity" class="absolute inset-y-0 right-0 z-10 flex w-1/5 items-center justify-end bg-transparent pr-2 text-brand transition-opacity duration-500 hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-brand motion-reduce:transition-none"><x-coffee-icon name="chevron-right" class="size-7"/></button>
+                        @endif
                         @if($likePostId)
                             <span x-cloak x-show="photoLikeVisible" x-transition:leave="transition ease-in duration-150" x-transition:leave-start="scale-100 opacity-100" x-transition:leave-end="scale-75 opacity-0" class="pointer-events-none absolute inset-0 flex items-center justify-center"><x-coffee-icon name="heart" class="size-24 fill-current text-red-500 drop-shadow-lg photo-like-pop"/></span>
                         @endif
                     </div>
                 @else
-                    <video controls playsinline preload="metadata" class="aspect-[1.6] w-full bg-black object-contain" aria-label="{{ $title }} &mdash; video {{ $index + 1 }}"><source src="{{ $item['url'] }}" type="{{ $item['mime_type'] }}">Your browser cannot play this video.</video>
+                    <div class="flex w-full justify-center bg-black">
+                        <video controls playsinline preload="none" x-bind:preload="active === {{ $index }} ? 'metadata' : 'none'" class="block h-auto max-h-[70vh] max-w-full w-auto bg-black object-contain" aria-label="{{ $title }} &mdash; video {{ $index + 1 }}"><source src="{{ $item['url'] }}" type="{{ $item['mime_type'] }}">Your browser cannot play this video.</video>
+                    </div>
                     <a href="{{ $item['url'] }}" target="_blank" rel="noopener" class="block px-4 py-2 text-xs text-brand underline">Open original video</a>
                 @endif
             </div>
         @endforeach
-    </div>
-    @if(count($media) > 1)
-        <button type="button" x-on:click="showMedia(active - 1)" x-bind:style="'opacity: ' + arrowOpacity" aria-label="Previous photo or video" title="Previous photo" class="absolute left-3 top-1/2 z-10 flex size-11 -translate-y-1/2 items-center justify-center bg-transparent text-brand transition-opacity duration-500 hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand motion-reduce:transition-none">
+        </div>
+        @if(count($media) > 1)
+        <button type="button" x-show="mediaToPreload[active].kind === 'video'" x-on:click="showMedia(active - 1)" x-bind:style="'opacity: ' + arrowOpacity" aria-label="Previous photo or video" title="Previous photo" class="absolute left-3 top-1/2 z-10 flex size-11 -translate-y-1/2 items-center justify-center bg-transparent text-brand transition-opacity duration-500 hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand motion-reduce:transition-none">
             <x-coffee-icon name="chevron-left" class="size-7"/>
         </button>
-        <button type="button" x-on:click="showMedia(active + 1)" x-bind:style="'opacity: ' + arrowOpacity" aria-label="Next photo or video" title="Next photo" class="absolute right-3 top-1/2 z-10 flex size-11 -translate-y-1/2 items-center justify-center bg-transparent text-brand transition-opacity duration-500 hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand motion-reduce:transition-none">
+        <button type="button" x-show="mediaToPreload[active].kind === 'video'" x-on:click="showMedia(active + 1)" x-bind:style="'opacity: ' + arrowOpacity" aria-label="Next photo or video" title="Next photo" class="absolute right-3 top-1/2 z-10 flex size-11 -translate-y-1/2 items-center justify-center bg-transparent text-brand transition-opacity duration-500 hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand motion-reduce:transition-none">
             <x-coffee-icon name="chevron-right" class="size-7"/>
         </button>
         <span class="pointer-events-none absolute top-3 right-3 z-10 rounded-full bg-surface/75 px-3 py-1 text-xs text-ink shadow-sm" aria-live="polite" aria-atomic="true"><span x-text="active + 1">1</span> / {{ count($media) }}</span>
-    @endif
+        @endif
+    </div>
 </section>

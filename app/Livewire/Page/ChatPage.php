@@ -197,6 +197,7 @@ class ChatPage extends Component
         $this->conversationUuid = $conversation->conversation_uuid;
         $this->recipientUuid = '';
         $this->reset('body');
+        $this->dispatch('chat-message-sent', conversationUuid: $conversation->conversation_uuid);
     }
 
     public function openCafeSearch(): void
