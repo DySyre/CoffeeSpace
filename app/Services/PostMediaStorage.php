@@ -11,7 +11,7 @@ use Throwable;
 
 class PostMediaStorage
 {
-    public function __construct(private CloudinaryMediaClient $cloudinary) {}
+    public function __construct(private CloudinaryMediaClient $cloudinary, private MediaMetadataStripper $metadataStripper) {}
 
     public function store(UploadedFile $file, Post $post, array $metadata): array
     {
@@ -23,12 +23,17 @@ class PostMediaStorage
         if (config('post-media.disk') !== 'local') {
             throw new RuntimeException('Unsupported post media disk.');
         }
-        $path = $file->store('post-media/'.$post->user_id, 'local');
-        if (! $path) {
-            throw new RuntimeException('Unable to store post media.');
-        }
+        $sanitized = $this->metadataStripper->sanitize($file, $metadata['kind']);
+        try {
+            $path = $sanitized->store('post-media/'.$post->user_id, 'local');
+            if (! $path) {
+                throw new RuntimeException('Unable to store post media.');
+            }
 
-        return ['disk' => 'local', 'path' => $path];
+            return ['disk' => 'local', 'path' => $path, 'size_bytes' => $sanitized->getSize()];
+        } finally {
+            $this->metadataStripper->cleanup($sanitized, $file);
+        }
     }
 
     public function remove(array $assets): void

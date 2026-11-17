@@ -1,3 +1,5 @@
+let cropSequence = 0;
+
 export default function profileImageCropper(wire, options = {}) {
     let sourceImage = null;
     let objectUrl = null;
@@ -12,7 +14,7 @@ export default function profileImageCropper(wire, options = {}) {
         editMediaPreviews: [], editMediaError: '', postMediaUploading: false, postMediaProgress: 0,
         postRatio: 'original', postRatioLocked: false, originalRatio: 1,
         cropKind: 'photo', cropReady: false, cropBusy: false, cropError: '', cropProgress: 0,
-        zoomExpanded: false, zoom: 1, offsetX: 0, offsetY: 0, baseScale: 1, disposed: false,
+        zoomExpanded: false, cropOptionsExpanded: false, zoom: 1, offsetX: 0, offsetY: 0, baseScale: 1, disposed: false,
 
         async openProfileShare(url, name = 'CoffeeSpace', kind = 'profile') {
             this.shareKind = kind;
@@ -127,6 +129,7 @@ export default function profileImageCropper(wire, options = {}) {
             this.cropKind = kind;
             this.cropReady = false;
             this.zoomExpanded = false;
+            this.cropOptionsExpanded = false;
             this.$refs.cropDialog.showModal();
             const token = ++request;
             if (file.size > 10 * 1024 * 1024 || !/\.(jpe?g|png)$/i.test(file.name) || (file.type && !['image/jpeg', 'image/png'].includes(file.type))) {
@@ -153,6 +156,7 @@ export default function profileImageCropper(wire, options = {}) {
             if (this.cropKind !== 'post' || this.postRatioLocked || this.cropBusy || !['square', 'landscape', 'portrait', 'original'].includes(ratio)) return;
             this.postRatio = ratio;
             this.resetCropFrame();
+            this.cropOptionsExpanded = false;
         },
 
         resetCropFrame() {
@@ -235,9 +239,11 @@ export default function profileImageCropper(wire, options = {}) {
             this.cropProgress = 0;
             if (field !== 'post') this.showToast('loading', field === 'cover' ? 'Saving your cover photo...' : 'Saving your profile photo...');
             options.onUploadStart?.(this);
-            wire.upload(options.uploadField ?? field, new File([blob], `${field}-crop.jpg`, { type: 'image/jpeg' }),
-                () => { this.cropBusy = false; this.photoUploading = false; this.coverUploading = false; options.onUploadEnd?.(this); this.closeCrop(); },
-                () => { this.cropBusy = false; this.photoUploading = false; this.coverUploading = false; options.onUploadEnd?.(this); this.cropError = 'Upload failed. Your current photo is unchanged. Please try again.'; if (field !== 'post') this.showToast('error', this.cropError); options.onUploadError?.(this); },
+            const uploadFile = new File([blob], `${field}-crop-${Date.now()}-${++cropSequence}.jpg`, { type: 'image/jpeg' });
+            options.onUploadPrepared?.(this, uploadFile, field);
+            wire.upload(options.uploadField ?? field, uploadFile,
+                () => { this.cropBusy = false; this.photoUploading = false; this.coverUploading = false; options.onUploadEnd?.(this, uploadFile, field); this.closeCrop(); },
+                () => { this.cropBusy = false; this.photoUploading = false; this.coverUploading = false; options.onUploadEnd?.(this, uploadFile, field); this.cropError = 'Upload failed. Your current photo is unchanged. Please try again.'; if (field !== 'post') this.showToast('error', this.cropError); options.onUploadError?.(this, uploadFile, field); },
                 event => { this.cropProgress = event.detail.progress; options.onProgress?.(this, this.cropProgress); },
             );
         },
@@ -260,6 +266,7 @@ export default function profileImageCropper(wire, options = {}) {
             this.hideToast();
             this.cropBusy = false;
             this.clearEditPreviews();
+            options.onDestroy?.(this);
             this.closeCrop();
         },
     };

@@ -110,13 +110,52 @@ function searchPopup(place) {
     return popup;
 }
 
+function nearbyCafeIcon() {
+    const marker = document.createElement('span');
+    marker.className = 'map-osm-cafe-marker';
+    marker.innerHTML = '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 8h12v7a4 4 0 0 1-4 4H9a4 4 0 0 1-4-4V8Z"/><path d="M17 10h1.5a2.5 2.5 0 0 1 0 5H17M8 4c-1 1 1 1.5 0 2.5M12 4c-1 1 1 1.5 0 2.5"/></svg>';
+
+    return L.divIcon({ className: '', html: marker, iconSize: [36, 36], iconAnchor: [18, 18] });
+}
+
+function nearbyCafePopup(cafe) {
+    const popup = document.createElement('div');
+    const name = document.createElement('strong');
+    name.textContent = cafe.name;
+    popup.append(name);
+
+    if (cafe.address) {
+        const address = document.createElement('p');
+        address.textContent = cafe.address;
+        popup.append(address);
+    }
+
+    if (cafe.opening_hours) {
+        const hours = document.createElement('p');
+        hours.textContent = `Hours: ${cafe.opening_hours}`;
+        popup.append(hours);
+    }
+
+    const source = document.createElement('a');
+    source.href = `https://www.openstreetmap.org/${encodeURIComponent(cafe.osm_type)}/${encodeURIComponent(cafe.osm_id)}`;
+    source.target = '_blank';
+    source.rel = 'noopener noreferrer';
+    source.textContent = 'OpenStreetMap';
+    popup.append(source);
+
+    return popup;
+}
+
 export default function coffeeMap(wire, postPins, center, currentLocation, currentUser, hasPlannedPins = false) {
     return {
         map: null,
         postLayer: null,
+        nearbyLayer: null,
         locationMarker: null,
         searchLayer: null,
         searchMarkers: new Map(),
+        postMarkers: new Map(),
+        nearbyMarkers: new Map(),
         searchResults: [],
         locating: false,
         locationError: '',
@@ -126,6 +165,7 @@ export default function coffeeMap(wire, postPins, center, currentLocation, curre
         hasVisitedPins: postPins.some(pin => pin.visited),
         hasCommunityPins: postPins.some(pin => pin.community),
         hasCurrentLocation: false,
+        nearbyStories: [],
         nearbySettingsOpen: true,
         currentUser,
 
@@ -148,6 +188,7 @@ export default function coffeeMap(wire, postPins, center, currentLocation, curre
             }).addTo(this.map);
 
             this.postLayer = L.layerGroup().addTo(this.map);
+            this.nearbyLayer = L.layerGroup().addTo(this.map);
             this.searchLayer = L.layerGroup().addTo(this.map);
             this.drawPostPins();
 
@@ -169,6 +210,7 @@ export default function coffeeMap(wire, postPins, center, currentLocation, curre
 
         drawPostPins() {
             this.postLayer.clearLayers();
+            this.postMarkers.clear();
             this.postPins.forEach(place => {
                 const visitedVisible = place.visited && this.visibleLayers.been_here;
                 const wantVisible = place.want_to_go && this.visibleLayers.want_to_go;
@@ -192,7 +234,48 @@ export default function coffeeMap(wire, postPins, center, currentLocation, curre
 
                 marker.bindPopup(postPopup(place), { maxWidth: 280 });
                 marker.addTo(this.postLayer);
+                this.postMarkers.set(place.place_key, marker);
             });
+        },
+
+        showNearbyCafes(cafes, stories, center) {
+            this.nearbyLayer.clearLayers();
+            this.nearbyMarkers.clear();
+            this.nearbyStories = Array.isArray(stories) ? stories : [];
+
+            const points = center ? [[center.latitude, center.longitude]] : [];
+            (Array.isArray(cafes) ? cafes : []).forEach(cafe => {
+                if (! Number.isFinite(Number(cafe.latitude)) || ! Number.isFinite(Number(cafe.longitude))) return;
+
+                const key = `${cafe.osm_type}:${cafe.osm_id}`;
+                const point = [Number(cafe.latitude), Number(cafe.longitude)];
+                const marker = L.marker(point, { icon: nearbyCafeIcon(), zIndexOffset: 200 })
+                    .bindPopup(nearbyCafePopup(cafe), { maxWidth: 280 })
+                    .addTo(this.nearbyLayer);
+                this.nearbyMarkers.set(key, marker);
+                points.push(point);
+            });
+
+            this.nearbyStories.forEach(story => points.push([story.latitude, story.longitude]));
+
+            if (points.length > 1) this.map.fitBounds(L.latLngBounds(points).pad(0.15), { maxZoom: 15 });
+            else if (points.length === 1) this.map.setView(points[0], 14);
+        },
+
+        focusNearbyCafe(type, id) {
+            const marker = this.nearbyMarkers.get(`${type}:${id}`);
+            if (! marker) return;
+
+            this.map.setView(marker.getLatLng(), Math.max(this.map.getZoom(), 15));
+            marker.openPopup();
+        },
+
+        focusPostPin(placeKey) {
+            const marker = this.postMarkers.get(placeKey);
+            if (! marker) return;
+
+            this.map.setView(marker.getLatLng(), Math.max(this.map.getZoom(), 15));
+            marker.openPopup();
         },
 
         toggleLayer(layer) {

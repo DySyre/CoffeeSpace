@@ -54,6 +54,11 @@ class Post extends Model
         return $this->hasMany(PostReport::class);
     }
 
+    public function collaborations(): HasMany
+    {
+        return $this->hasMany(PostCollaboration::class);
+    }
+
     public function likes(): BelongsToMany
     {
         return $this->belongsToMany(User::class, 'post_likes')->withTimestamps();
@@ -101,23 +106,51 @@ class Post extends Model
             if ($viewer) {
                 $access->orWhere($userId, $viewer->id)
                     ->orWhere(function (Builder $followers) use ($viewer) {
-                        $followers->where('posts.visibility', 'followers')->whereExists(function ($relation) use ($viewer) {
-                            $relation->selectRaw('1')->from('user_follows')
-                                ->whereColumn('user_follows.followed_id', 'posts.user_id')
-                                ->where('user_follows.follower_id', $viewer->id);
+                        $followers->where('posts.visibility', 'followers')->where(function (Builder $audience) use ($viewer) {
+                            $audience->whereExists(function ($relation) use ($viewer) {
+                                $relation->selectRaw('1')->from('user_follows')
+                                    ->whereColumn('user_follows.followed_id', 'posts.user_id')
+                                    ->where('user_follows.follower_id', $viewer->id);
+                            })->orWhereExists(function ($relation) use ($viewer) {
+                                $relation->selectRaw('1')->from('post_collaborations')
+                                    ->join('user_follows', 'user_follows.followed_id', '=', 'post_collaborations.collaborator_id')
+                                    ->whereColumn('post_collaborations.post_id', 'posts.id')
+                                    ->where('post_collaborations.status', 'accepted')
+                                    ->where('user_follows.follower_id', $viewer->id);
+                            });
+                        });
+                    })
+                    ->orWhereHas('collaborations', fn (Builder $collaborations) => $collaborations
+                        ->where('collaborator_id', $viewer->id)
+                        ->where('status', 'accepted'));
+            }
+        })->when($viewer, fn (Builder $visible) => $visible
+            ->whereNotExists(function ($blocks) use ($viewer) {
+                $blocks->selectRaw('1')->from('user_blocks')->where(function ($pair) use ($viewer) {
+                    $pair->where(function ($outgoing) use ($viewer) {
+                        $outgoing->where('user_blocks.blocker_id', $viewer->id)
+                            ->whereColumn('user_blocks.blocked_id', 'posts.user_id');
+                    })->orWhere(function ($incoming) use ($viewer) {
+                        $incoming->whereColumn('user_blocks.blocker_id', 'posts.user_id')
+                            ->where('user_blocks.blocked_id', $viewer->id);
+                    });
+                });
+            })
+            ->whereNotExists(function ($blocks) use ($viewer) {
+                $blocks->selectRaw('1')->from('post_collaborations')
+                    ->whereColumn('post_collaborations.post_id', 'posts.id')
+                    ->where('post_collaborations.status', 'accepted')
+                    ->whereExists(function ($relationship) use ($viewer) {
+                        $relationship->selectRaw('1')->from('user_blocks')->where(function ($pair) use ($viewer) {
+                            $pair->where(function ($outgoing) use ($viewer) {
+                                $outgoing->where('user_blocks.blocker_id', $viewer->id)
+                                    ->whereColumn('user_blocks.blocked_id', 'post_collaborations.collaborator_id');
+                            })->orWhere(function ($incoming) use ($viewer) {
+                                $incoming->whereColumn('user_blocks.blocker_id', 'post_collaborations.collaborator_id')
+                                    ->where('user_blocks.blocked_id', $viewer->id);
+                            });
                         });
                     });
-            }
-        })->when($viewer, fn (Builder $visible) => $visible->whereNotExists(function ($blocks) use ($viewer) {
-            $blocks->selectRaw('1')->from('user_blocks')->where(function ($pair) use ($viewer) {
-                $pair->where(function ($outgoing) use ($viewer) {
-                    $outgoing->where('user_blocks.blocker_id', $viewer->id)
-                        ->whereColumn('user_blocks.blocked_id', 'posts.user_id');
-                })->orWhere(function ($incoming) use ($viewer) {
-                    $incoming->whereColumn('user_blocks.blocker_id', 'posts.user_id')
-                        ->where('user_blocks.blocked_id', $viewer->id);
-                });
-            });
-        }));
+            }));
     }
 }

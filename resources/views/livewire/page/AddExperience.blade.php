@@ -15,11 +15,11 @@
                 @forelse($uploads as $index => $file)
                     <div wire:key="preview-{{ $file->getFilename() }}" x-show="activeMedia === {{ $index }}" class="absolute inset-0">
                         @if(in_array(strtolower($file->getClientOriginalExtension()), ['jpg', 'jpeg', 'png']))
-                            <img src="{{ $file->temporaryUrl() }}" alt="Selected photo {{ $index + 1 }}" class="size-full object-contain">
+                            <img x-bind:src="postPreviewUrl(@js($file->getClientOriginalName()), @js($file->temporaryUrl()))" alt="Selected photo {{ $index + 1 }}" class="size-full object-contain">
                         @else
                             <video src="{{ $file->temporaryUrl() }}" controls playsinline preload="metadata" aria-label="Selected video {{ $index + 1 }}" class="size-full object-contain"></video>
                         @endif
-                        <button type="button" wire:click="removeMedia({{ $index }})" x-bind:disabled="uploading || batchBusy" wire:loading.attr="disabled" wire:target="save,removeMedia" aria-label="Remove {{ $file->getClientOriginalName() }}" class="absolute top-3 right-3 min-h-11 rounded-sm bg-surface px-4 text-sm text-ink">Remove</button>
+                        <button type="button" x-on:click="releasePostPreview(@js($file->getClientOriginalName()))" wire:click="removeMedia({{ $index }})" x-bind:disabled="uploading || batchBusy" wire:loading.attr="disabled" wire:target="save,removeMedia" aria-label="Remove {{ $file->getClientOriginalName() }}" class="absolute top-3 right-3 min-h-11 rounded-sm bg-surface px-4 text-sm text-ink">Remove</button>
                         <span class="absolute bottom-3 left-3 rounded-sm bg-surface px-3 py-2 text-xs text-ink">{{ $index + 1 }} / {{ count($uploads) }}</span>
                     </div>
                 @empty
@@ -42,7 +42,7 @@
                 @foreach($uploads as $index => $file)
                     <button wire:key="thumbnail-{{ $file->getFilename() }}" type="button" x-on:click="selectMedia({{ $index }})" x-bind:aria-pressed="activeMedia === {{ $index }}" aria-label="Preview {{ in_array(strtolower($file->getClientOriginalExtension()), ['jpg', 'jpeg', 'png']) ? 'photo' : 'video' }} {{ $index + 1 }}" class="relative aspect-square overflow-hidden rounded-sm bg-soft">
                         @if(in_array(strtolower($file->getClientOriginalExtension()), ['jpg', 'jpeg', 'png']))
-                            <img src="{{ $file->temporaryUrl() }}" alt="" class="size-full object-cover">
+                            <img x-bind:src="postPreviewUrl(@js($file->getClientOriginalName()), @js($file->temporaryUrl()))" alt="" class="size-full object-cover">
                             <span class="absolute bottom-1 left-1 rounded-sm bg-surface/90 px-2 py-1 text-[10px] font-medium text-ink">Photo</span>
                         @else
                             <span class="flex size-full flex-col items-center justify-center gap-2 text-brand"><x-coffee-icon name="video" class="size-8"/><span class="text-xs">Video preview</span></span>
@@ -76,8 +76,10 @@
                 <div class="mt-4 flex flex-wrap justify-between gap-3"><button type="button" x-on:click="closeCamera(); $refs.devicePhoto.click()" class="min-h-11 px-3 text-sm text-brand">Use device camera</button><button type="button" x-on:click="takePhoto()" x-bind:disabled="!cameraReady" class="flex min-h-11 items-center gap-2 rounded-sm bg-brand px-5 text-sm text-on-brand disabled:opacity-50"><x-coffee-icon name="camera"/>Take photo</button></div>
             </dialog>
         <fieldset x-cloak x-show="step === 'details'" x-bind:disabled="step !== 'details'" class="flex min-w-0 flex-col gap-6 p-4 sm:p-6">
-        <details wire:ignore.self x-bind:open="pinOpen" x-on:toggle="pinOpen = $el.open" class="rounded-md border border-line border-t-[6px] border-t-brand bg-surface p-5 sm:p-6" aria-label="Cafe location pin">
-            <summary class="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 font-display text-lg font-semibold [&::-webkit-details-marker]:hidden"><span>Pin the caf&eacute;<span x-show="attachedPin" class="ml-2 font-sans text-xs font-normal text-brand">Attached</span></span><x-coffee-icon name="chevron-right" x-show="!pinOpen"/><x-coffee-icon name="chevron-down" x-cloak x-show="pinOpen"/></summary>
+        <section class="rounded-md border border-line border-t-[6px] border-t-brand bg-surface p-5 sm:p-6" aria-label="Cafe location pin">
+            <button type="button" x-on:click="pinOpen = !pinOpen" x-bind:aria-expanded="pinOpen" aria-controls="post-pin-panel" class="flex min-h-11 w-full items-center justify-between gap-3 text-left font-display text-lg font-semibold focus-visible:outline-2 focus-visible:outline-brand"><span>Pin the caf&eacute;<span x-show="attachedPin" class="ml-2 font-sans text-xs font-normal text-brand">Attached</span></span><x-coffee-icon name="chevron-right" x-bind:class="pinOpen ? 'rotate-90' : ''" class="size-5 shrink-0 transition-transform duration-200 motion-reduce:transition-none"/></button>
+            <div id="post-pin-panel" x-bind:inert="!pinOpen" x-bind:aria-hidden="!pinOpen" x-bind:style="'grid-template-rows: ' + (pinOpen ? '1fr' : '0fr') + '; opacity: ' + (pinOpen ? '1' : '0')" class="grid overflow-hidden transition-[grid-template-rows,opacity] duration-300 ease-out motion-reduce:transition-none">
+            <div class="min-h-0 overflow-hidden">
             <div class="mt-3">
             <div class="flex flex-wrap items-start justify-between gap-4"><div><p class="mt-2 max-w-lg text-sm leading-6 text-muted"><i data-lucide="map-pin" class="mr-1 inline-block size-4"></i>Find and attach a cafe pin.</p></div><button type="button" x-on:click="locate()" x-bind:disabled="locating" class="flex min-h-11 items-center gap-2 rounded-sm border border-line px-4 text-sm text-brand disabled:opacity-50"><x-coffee-icon name="map"/><span x-text="locating ? 'Finding location…' : 'Use my location'">Use my location</span></button></div>
             <div class="mt-5">
@@ -106,12 +108,84 @@
             @error('latitude')<p role="alert" class="mt-2 text-sm text-red-700 dark:text-red-300">{{ $message }}</p>@enderror
             @error('longitude')<p role="alert" class="mt-2 text-sm text-red-700 dark:text-red-300">{{ $message }}</p>@enderror
             </div>
-        </details>
-        <flux:select wire:model="visibility" label="Who can see this post?">
-            <flux:select.option value="public">Public</flux:select.option>
-            <flux:select.option value="followers">Followers only</flux:select.option>
-            <flux:select.option value="private">Only me</flux:select.option>
-        </flux:select>
+            </div>
+            </div>
+        </section>
+
+<div class="min-w-0">
+    <button type="button" x-on:click="openCollaboratorPicker()" aria-haspopup="dialog" aria-label="Choose post collaborators" class="flex min-h-16 w-full items-center justify-between gap-3 rounded-md border border-line border-t-[6px] border-t-brand bg-surface px-5 text-left hover:bg-soft focus-visible:outline-2 focus-visible:outline-brand sm:px-6">
+        <span class="flex min-w-0 items-center gap-3"><x-coffee-icon name="profile" class="size-5 shrink-0 text-brand"/><span class="min-w-0"><span class="block font-display text-lg font-semibold">Tag collaborators <span class="font-sans text-xs font-normal text-muted"></span></span><span class="mt-1 block truncate text-xs text-muted">{{ $collaborators->isNotEmpty() ? $collaborators->count().' selected' : 'Invite people to add this post to their profiles' }}</span></span></span>
+        <x-coffee-icon name="chevron-right" class="shrink-0"/>
+    </button>
+    @error('collaboratorIds')<p role="alert" class="mt-2 text-sm text-red-700 dark:text-red-300">{{ $message }}</p>@enderror
+</div>
+
+<dialog x-ref="collaboratorDialog" wire:ignore.self x-bind:style="collaboratorDialogStyle" x-on:cancel.prevent="closeCollaboratorPicker()" x-on:click.self="closeCollaboratorPicker()" aria-labelledby="collaborator-dialog-title" class="fixed inset-x-0 bottom-0 top-auto m-0 h-[var(--collaborator-sheet-height)] max-h-[70dvh] w-full max-w-full overflow-hidden rounded-t-lg rounded-b-none border border-line bg-surface p-0 text-ink backdrop:bg-black/50 sm:bottom-auto sm:left-1/2 sm:right-auto sm:top-1/2 sm:m-0 sm:h-auto sm:max-h-[80dvh] sm:w-[min(94vw,560px)] sm:max-w-none sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-lg">
+    <div class="flex h-full min-h-0 flex-col">
+        <header class="shrink-0 border-b border-line px-4 pb-3 sm:px-6 sm:pt-5">
+            <button type="button" x-on:pointerdown.prevent="startCollaboratorDrag($event)" x-on:pointermove="moveCollaboratorDrag($event)" x-on:pointerup="endCollaboratorDrag($event)" x-on:pointercancel="endCollaboratorDrag($event)" aria-label="Drag to expand or close collaborator picker" class="mx-auto flex h-8 w-14 touch-none items-center justify-center sm:hidden"><span class="h-1 w-10 rounded-full bg-line"></span></button>
+            <div class="flex items-center justify-between gap-4"><div><h2 id="collaborator-dialog-title" class="font-display text-xl font-semibold">Tag collaborators</h2><p class="mt-1 text-sm text-muted">They can accept or decline adding the post to their profile.</p></div><button type="button" x-on:click="closeCollaboratorPicker()" aria-label="Close collaborator picker" title="Close collaborator picker" class="group flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-sm border border-transparent px-2 text-brand transition-all duration-200 hover:border-line hover:bg-soft hover:text-ink focus-visible:border-brand focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand motion-reduce:transition-none"><x-coffee-icon name="close" class="size-5 transition-transform duration-200 group-hover:rotate-90 group-focus-visible:rotate-90 motion-reduce:transition-none"/><span class="max-w-0 overflow-hidden whitespace-nowrap text-sm font-medium opacity-0 transition-all duration-200 group-hover:max-w-12 group-hover:opacity-100 group-focus-visible:max-w-12 group-focus-visible:opacity-100 motion-reduce:transition-none">Close</span></button></div>
+        </header>
+        <div class="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain p-4 sm:p-6">
+            @if($collaborators->isNotEmpty())
+                <section aria-label="Selected collaborators">
+                    <p class="text-xs font-semibold uppercase tracking-wide text-muted">Selected · {{ $collaborators->count() }} / 10</p>
+                    <ul class="mt-2 flex flex-wrap gap-2">
+                        @foreach($collaborators as $selectedCollaborator)
+                            <li wire:key="selected-collaborator-{{ $selectedCollaborator->id }}" class="flex min-h-10 items-center gap-2 rounded-full border border-line bg-soft py-1 pl-1 pr-2">
+                                <x-user-avatar :user="$selectedCollaborator"/>
+                                <span class="max-w-36 truncate text-xs font-medium">{{ $selectedCollaborator->name }}</span>
+                                <button type="button" wire:click="removeCollaborator({{ $selectedCollaborator->id }})" aria-label="Remove {{ $selectedCollaborator->name }}" class="flex size-8 items-center justify-center rounded-full text-muted hover:bg-surface hover:text-ink"><x-coffee-icon name="close" class="size-4"/></button>
+                            </li>
+                        @endforeach
+                    </ul>
+                </section>
+            @endif
+            @if($collaborators->count() < 10)
+                <div>
+                    <label for="collaborator-search" class="block text-sm font-medium">Search by name</label>
+                    <input id="collaborator-search" type="search" wire:model.live.debounce.300ms="collaboratorQuery" autocomplete="off" maxlength="100" placeholder="Type a person's name" class="mt-2 min-h-11 w-full min-w-0 rounded-sm border border-line bg-page px-3 text-base text-ink sm:text-sm">
+                    @if($collaboratorQuery !== '' && mb_strlen(trim($collaboratorQuery)) < 2)
+                        <p class="mt-2 text-xs text-muted">Enter at least two characters.</p>
+                    @elseif($collaboratorQuery !== '')
+                        <ul class="mt-2 divide-y divide-line border-y border-line">
+                            @forelse($collaboratorResults as $candidate)
+                                <li wire:key="collaborator-result-{{ $candidate['id'] }}">
+                                    <button type="button" wire:click="selectCollaborator({{ $candidate['id'] }})" class="flex min-h-12 w-full items-center gap-3 px-2 text-left hover:bg-soft focus-visible:outline-2 focus-visible:outline-brand">
+                                        <span class="flex size-8 items-center justify-center rounded-full bg-soft text-xs font-semibold text-brand">{{ \Illuminate\Support\Str::of($candidate['name'])->explode(' ')->map(fn ($part) => mb_substr($part, 0, 1))->take(2)->implode('') }}</span>
+                                        <span class="text-sm font-medium">{{ $candidate['name'] }}</span>
+                                    </button>
+                                </li>
+                            @empty
+                                <li class="py-3 text-sm text-muted">No available people found.</li>
+                            @endforelse
+                        </ul>
+                    @endif
+                </div>
+            @else
+                <p class="text-sm text-muted">You have reached the 10-person limit for this post.</p>
+            @endif
+        </div>
+        <footer class="shrink-0 border-t border-line bg-surface p-4 sm:px-6"><button type="button" x-on:click="closeCollaboratorPicker()" class="min-h-11 w-full rounded-sm bg-brand px-4 text-sm font-semibold text-on-brand">Done</button></footer>
+    </div>
+</dialog>
+        <fieldset x-data="{ visibilityOpen: false, visibility: $wire.entangle('visibility') }" x-on:click.outside="visibilityOpen = false" class="min-w-0">
+            <legend class="text-sm font-medium">Who can see this post?</legend>
+            <div class="relative mt-2">
+                <button type="button" x-on:click="visibilityOpen = !visibilityOpen" x-bind:aria-expanded="visibilityOpen" aria-controls="post-visibility-options" class="flex min-h-11 w-full items-center justify-between gap-3 rounded-sm border border-line bg-surface px-3 text-left text-sm text-brand transition-colors hover:bg-soft focus-visible:outline-2 focus-visible:outline-brand sm:w-auto sm:min-w-56">
+                    <span class="flex min-w-0 items-center gap-2"><x-coffee-icon name="globe" x-cloak x-show="visibility === 'public'" class="size-4"/><x-coffee-icon name="users" x-cloak x-show="visibility === 'followers'" class="size-4"/><x-coffee-icon name="lock" x-cloak x-show="visibility === 'private'" class="size-4"/><span x-text="visibility === 'public' ? 'Public' : visibility === 'followers' ? 'Followers' : 'Only me'">Public</span></span>
+                    <x-coffee-icon name="chevron-down" class="size-4 transition-transform duration-200" x-bind:class="visibilityOpen ? 'rotate-180' : ''"/>
+                </button>
+                <div id="post-visibility-options" x-cloak x-show="visibilityOpen" x-transition:enter="transition ease-out duration-150" x-transition:enter-start="-translate-y-1 opacity-0" x-transition:enter-end="translate-y-0 opacity-100" x-transition:leave="transition ease-in duration-100" x-transition:leave-start="translate-y-0 opacity-100" x-transition:leave-end="-translate-y-1 opacity-0" role="group" aria-label="Post visibility options" class="absolute left-0 top-full z-20 mt-1 w-full min-w-56 rounded-sm border border-line bg-surface p-1 shadow-lg sm:w-64">
+                    <button type="button" x-on:click="visibility = 'public'; visibilityOpen = false" x-bind:aria-pressed="visibility === 'public'" class="flex min-h-11 w-full items-center gap-2 rounded-sm px-3 text-left text-sm text-ink hover:bg-soft focus-visible:outline-2 focus-visible:outline-brand"><x-coffee-icon name="globe" class="size-4 text-brand"/>Public<span x-cloak x-show="visibility === 'public'" class="ml-auto text-brand"><x-coffee-icon name="check" class="size-4"/></span></button>
+                    <button type="button" x-on:click="visibility = 'followers'; visibilityOpen = false" x-bind:aria-pressed="visibility === 'followers'" class="flex min-h-11 w-full items-center gap-2 rounded-sm px-3 text-left text-sm text-ink hover:bg-soft focus-visible:outline-2 focus-visible:outline-brand"><x-coffee-icon name="users" class="size-4 text-brand"/>Followers<span x-cloak x-show="visibility === 'followers'" class="ml-auto text-brand"><x-coffee-icon name="check" class="size-4"/></span></button>
+                    <button type="button" x-on:click="visibility = 'private'; visibilityOpen = false" x-bind:aria-pressed="visibility === 'private'" class="flex min-h-11 w-full items-center gap-2 rounded-sm px-3 text-left text-sm text-ink hover:bg-soft focus-visible:outline-2 focus-visible:outline-brand"><x-coffee-icon name="lock" class="size-4 text-brand"/>Only me<span x-cloak x-show="visibility === 'private'" class="ml-auto text-brand"><x-coffee-icon name="check" class="size-4"/></span></button>
+                </div>
+            </div>
+            <p class="mt-2 text-xs leading-5 text-muted" x-text="visibility === 'public' ? 'Anyone can see this post.' : visibility === 'followers' ? 'Visible to followers of you or any accepted collaborator.' : 'Visible only to you and accepted collaborators.'">Anyone can see this post.</p>
+            @error('visibility')<p role="alert" class="mt-2 text-sm text-red-700 dark:text-red-300">{{ $message }}</p>@enderror
+        </fieldset>
+
         <div class="grid gap-5 sm:grid-cols-2">
             <flux:input wire:model="cafeName" label="Café name" maxlength="255" required />
             <flux:input wire:model="city" label="City / area" maxlength="255" required />
@@ -119,10 +193,16 @@
 
         <flux:input wire:model="title" label="Title" maxlength="160" required />
         <flux:textarea wire:model="body" label="Your story" rows="5" maxlength="3000" required />
-        <fieldset x-data="{ selected: $wire.entangle('selectedAmenities') }" class="border-t border-line pt-5">
-            <legend class="font-display text-lg font-semibold">Post tags</legend>
-            <p class="mt-2 text-sm text-muted">Tick what you checked and add useful details.</p>
-            <div class="mt-4 flex flex-wrap gap-2">
+        <fieldset x-data="{ selected: $wire.entangle('selectedAmenities'), tagsOpen: @js($errors->has('selectedAmenities') || collect(array_keys($errors->getMessages()))->contains(fn ($field) => str_starts_with($field, 'selectedAmenities.') || str_starts_with($field, 'amenityDetails.'))) }" class="min-w-0">
+            <div class="border-t border-line pt-5">
+                <button type="button" x-on:click="tagsOpen = !tagsOpen" x-bind:aria-expanded="tagsOpen" aria-controls="post-tag-panel" class="flex min-h-11 w-full items-center justify-between gap-3 text-left focus-visible:outline-2 focus-visible:outline-brand">
+                    <span><span class="block font-display text-lg font-semibold">Post tags</span><span class="mt-1 block text-sm text-muted">Tick what you checked and add useful details.</span></span>
+                    <x-coffee-icon name="chevron-right" x-bind:class="tagsOpen ? 'rotate-90' : ''" class="size-5 shrink-0 transition-transform duration-200 motion-reduce:transition-none"/>
+                </button>
+                <div id="post-tag-panel" x-bind:inert="!tagsOpen" x-bind:aria-hidden="!tagsOpen" x-bind:style="'grid-template-rows: ' + (tagsOpen ? '1fr' : '0fr') + '; opacity: ' + (tagsOpen ? '1' : '0')" class="grid overflow-hidden transition-[grid-template-rows,opacity] duration-300 ease-out motion-reduce:transition-none">
+                <div class="min-h-0 overflow-hidden">
+                <div class="pt-4">
+            <div class="flex flex-wrap gap-2">
                 @foreach(\App\Models\Post::AMENITIES as $key => $definition)
                     <label class="flex min-h-11 cursor-pointer items-center gap-2 rounded-sm border border-line px-3 text-sm text-brand has-checked:border-brand has-checked:bg-soft"><input type="checkbox" x-model="selected" value="{{ $key }}" class="size-4 accent-brand"><x-coffee-icon :name="$definition['icon']" class="size-4"/>{{ $definition['label'] }}</label>
                 @endforeach
@@ -163,13 +243,16 @@
                     @endif
                 </div>
             @endforeach
+                </div>
+                </div>
+                </div>
         </fieldset>
 
         @error('uploads')<p role="alert" class="text-sm text-red-700 dark:text-red-300">{{ $message }}</p>@enderror
         @error('upload')<p role="alert" class="text-sm text-red-700 dark:text-red-300">{{ $message }}</p>@enderror
         <div class="flex items-center justify-between gap-4 border-t border-line pt-6">
             <a href="{{ route('home') }}" wire:navigate class="min-h-11 py-3 text-sm text-muted">Cancel</a>
-            <button type="submit" x-bind:disabled="uploading || batchBusy" wire:loading.attr="disabled" wire:target="save,upload,removeMedia,amenityUpload,removeAmenityPhoto" class="min-h-11 rounded-sm bg-brand px-6 py-3 text-sm font-medium text-on-brand disabled:opacity-50">Publish post</button>
+            <button type="submit" x-bind:disabled="uploading || batchBusy" wire:loading.attr="disabled" wire:target="save,upload,removeMedia,amenityUpload,removeAmenityPhoto" class="flex min-h-11 items-center gap-2 rounded-sm bg-brand px-6 py-3 text-sm font-medium text-on-brand disabled:opacity-50"><x-lucide-send class="size-4" aria-hidden="true"/>Publish</button>
         </div>
         </fieldset>
         <x-image-crop-modal/>

@@ -3,20 +3,78 @@ import profileImageCropper from './profile-image-cropper.js';
 export default function postComposer(wire) {
     const cropper = profileImageCropper(wire, {
         uploadField: 'upload',
+        onUploadPrepared: (editor, file, field) => {
+            if (field === 'post') editor.postPreviewUrls[file.name] = URL.createObjectURL(file);
+        },
         onUploadStart: editor => { editor.uploading = true; editor.postRatioLocked = true; editor.showToast('loading', 'Uploading your cropped photo...', 'Uploading photo'); },
         onProgress: (editor, progress) => { editor.toastMessage = 'Uploading photo... ' + progress + '%'; },
-        onUploadError: editor => editor.showToast('error', 'Your photo could not be uploaded. Please try again.', 'Upload failed'),
+        onUploadError: (editor, file) => {
+            editor.releasePostPreview(file.name);
+            editor.showToast('error', 'Your photo could not be uploaded. Please try again.', 'Upload failed');
+        },
         onUploadEnd: editor => { editor.uploading = false; },
+        onDestroy: editor => editor.releaseAllPostPreviews(),
         onClosed: editor => { editor.currentMedia = null; editor.processNextMedia(); },
     });
     return {
         ...cropper,
         pinOpen: false,
+        collaboratorExpanded: false,
+        collaboratorSheetHeight: 40,
+        collaboratorDragStartY: null,
+        collaboratorDragStartHeight: 40,
         pendingMedia: [],
+        postPreviewUrls: {},
         currentMedia: null,
         batchBusy: false,
         batchTotal: 0,
         batchPosition: 0,
+
+        openCollaboratorPicker() {
+            if (!this.$refs.collaboratorDialog?.open) this.$refs.collaboratorDialog?.showModal();
+        },
+
+        closeCollaboratorPicker() {
+            this.collaboratorDragStartY = null;
+            this.collaboratorExpanded = false;
+            this.collaboratorSheetHeight = 40;
+            if (this.$refs.collaboratorDialog?.open) this.$refs.collaboratorDialog.close();
+        },
+
+        get collaboratorDialogStyle() {
+            return {
+                '--collaborator-sheet-height': `${this.collaboratorSheetHeight}dvh`,
+                transition: this.collaboratorDragStartY === null ? 'height 280ms cubic-bezier(0.22, 1, 0.36, 1)' : 'none',
+            };
+        },
+
+        startCollaboratorDrag(event) {
+            if (window.matchMedia('(min-width: 640px)').matches) return;
+            this.collaboratorDragStartY = event.clientY;
+            this.collaboratorDragStartHeight = this.collaboratorExpanded ? 70 : 40;
+            this.collaboratorSheetHeight = this.collaboratorDragStartHeight;
+            event.currentTarget.setPointerCapture(event.pointerId);
+        },
+
+        moveCollaboratorDrag(event) {
+            if (this.collaboratorDragStartY === null) return;
+            const delta = ((this.collaboratorDragStartY - event.clientY) / window.innerHeight) * 100;
+            this.collaboratorSheetHeight = Math.max(40, Math.min(70, this.collaboratorDragStartHeight + delta));
+        },
+
+        endCollaboratorDrag(event) {
+            if (this.collaboratorDragStartY === null) return;
+            const delta = this.collaboratorDragStartY - event.clientY;
+            if (delta < -160) {
+                this.closeCollaboratorPicker();
+                return;
+            }
+
+            if (delta > 48) this.collaboratorExpanded = true;
+            if (delta < -48) this.collaboratorExpanded = false;
+            this.collaboratorSheetHeight = this.collaboratorExpanded ? 70 : 40;
+            this.collaboratorDragStartY = null;
+        },
 
         selectFiles(event) {
             const files = Array.from(event.target.files ?? []);
@@ -67,6 +125,20 @@ export default function postComposer(wire) {
         step: 'media',
         activeMedia: 0,
         mediaCount: 0,
+
+        postPreviewUrl(fileName, fallback) {
+            return this.postPreviewUrls[fileName] ?? fallback;
+        },
+
+        releasePostPreview(fileName) {
+            const url = this.postPreviewUrls[fileName];
+            if (url) URL.revokeObjectURL(url);
+            delete this.postPreviewUrls[fileName];
+        },
+
+        releaseAllPostPreviews() {
+            Object.keys(this.postPreviewUrls).forEach(fileName => this.releasePostPreview(fileName));
+        },
 
         syncMedia(count) {
             if (count > this.mediaCount) {

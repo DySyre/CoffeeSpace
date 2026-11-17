@@ -151,6 +151,11 @@ class User extends Authenticatable implements MustVerifyEmail
         return $this->belongsToMany(Post::class, 'hidden_posts')->withTimestamps();
     }
 
+    public function postCollaborations(): HasMany
+    {
+        return $this->hasMany(PostCollaboration::class, 'collaborator_id');
+    }
+
     public function savedPlaces(): HasMany
     {
         return $this->hasMany(SavedPlace::class);
