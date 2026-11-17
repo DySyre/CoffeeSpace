@@ -2,6 +2,7 @@
 @php
     $icon = [
         'coffee' => 'coffee',
+        'close' => 'x',
         'check' => 'circle-check',
         'warning' => 'triangle-alert',
         'eye-off' => 'eye-off',
@@ -23,6 +24,7 @@
         'profile' => 'user-round',
         'search' => 'search',
         'zoom' => 'zoom-in',
+        'crop' => 'crop',
         'heart' => 'heart',
         'bookmark' => 'bookmark',
         'arrow' => 'arrow-right',

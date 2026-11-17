@@ -4,6 +4,7 @@
         @if ($unreadCount)<span class="absolute -right-1 -top-1 flex min-w-4 items-center justify-center rounded-full bg-brand px-1 text-[10px] font-semibold leading-4 text-on-brand">{{ $unreadCount > 9 ? '9+' : $unreadCount }}</span>@endif
     </button>
     <section x-cloak x-show="open" x-transition.origin.top.right role="dialog" aria-label="Notifications" class="fixed inset-x-3 top-20 z-50 max-h-[78vh] w-auto overflow-y-auto rounded-md border border-line bg-surface text-ink shadow-lg sm:absolute sm:inset-x-auto sm:top-full sm:right-0 sm:mt-2 sm:w-[min(88vw,360px)]">
+        @if($collaborationMessage)<p role="status" class="border-b border-line bg-soft px-4 py-3 text-sm text-brand">{{ $collaborationMessage }}</p>@endif
         <header class="border-b border-line px-4 py-3">
             <div class="flex items-center justify-between gap-3"><h2 class="font-display text-lg font-semibold">Notifications</h2>@if ($unreadCount)<span class="text-xs text-muted">{{ $unreadCount }} unread</span>@endif</div>
             <nav class="mt-3 flex gap-1 border-b border-line" role="tablist" aria-label="Notification status">
@@ -14,11 +15,24 @@
         </header>
         @forelse ($notifications as $notification)
             <div @class(['flex items-center gap-3 border-b border-line px-4 py-3 last:border-0 transition-colors hover:bg-soft', 'bg-soft/70' => ! $notification['read']])>
-                <a href="{{ $notification['url'] }}" wire:navigate x-on:click="open = false" class="flex min-w-0 flex-1 items-start gap-2 focus-visible:outline-2 focus-visible:outline-brand">
-                    <span class="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full bg-soft text-brand"><x-coffee-icon :name="$notification['type'] === 'plan' ? 'map' : ($notification['type'] === 'saved' ? 'bookmark' : 'comment')" class="size-4" /></span>
-                    <span aria-hidden="true" @class(['-ml-1 mt-1 size-2 shrink-0 rounded-full', 'bg-brand' => ! $notification['read'], 'bg-transparent' => $notification['read']])></span>
-                    <span class="min-w-0"><span class="block text-sm font-semibold">@if(! $notification['read'])<span class="sr-only">Unread. </span>@endif{{ $notification['title'] }}</span><span class="mt-1 block truncate text-xs text-muted">{{ $notification['detail'] }}</span><time class="mt-1 block text-[10px] text-muted">{{ $notification['time']->diffForHumans() }}</time></span>
-                </a>
+                @if($notification['type'] === 'collaboration')
+                    <div class="min-w-0 flex-1">
+                        <div class="flex items-start gap-2">
+                            <span class="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full bg-soft text-brand"><x-coffee-icon name="profile" class="size-4" /></span>
+                            <span class="min-w-0"><span class="block text-sm font-semibold">{{ $notification['title'] }}</span><span class="mt-1 block truncate text-xs text-muted">{{ $notification['detail'] }}</span><time class="mt-1 block text-[10px] text-muted">{{ $notification['time']->diffForHumans() }}</time></span>
+                        </div>
+                        <div class="mt-2 flex gap-2 pl-10">
+                            <button type="button" wire:click="acceptCollaboration({{ $notification['id'] }})" wire:loading.attr="disabled" wire:target="acceptCollaboration({{ $notification['id'] }})" class="min-h-9 rounded-sm bg-brand px-3 text-xs font-medium text-on-brand disabled:opacity-50">Accept</button>
+                            <button type="button" wire:click="declineCollaboration({{ $notification['id'] }})" wire:loading.attr="disabled" wire:target="declineCollaboration({{ $notification['id'] }})" class="min-h-9 rounded-sm border border-line px-3 text-xs font-medium text-muted disabled:opacity-50">Decline</button>
+                        </div>
+                    </div>
+                @else
+                    <a href="{{ $notification['url'] }}" wire:navigate x-on:click="open = false" class="flex min-w-0 flex-1 items-start gap-2 focus-visible:outline-2 focus-visible:outline-brand">
+                        <span class="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full bg-soft text-brand"><x-coffee-icon :name="$notification['type'] === 'plan' ? 'map' : ($notification['type'] === 'saved' ? 'bookmark' : 'comment')" class="size-4" /></span>
+                        <span aria-hidden="true" @class(['-ml-1 mt-1 size-2 shrink-0 rounded-full', 'bg-brand' => ! $notification['read'], 'bg-transparent' => $notification['read']])></span>
+                        <span class="min-w-0"><span class="block text-sm font-semibold">@if(! $notification['read'])<span class="sr-only">Unread. </span>@endif{{ $notification['title'] }}</span><span class="mt-1 block truncate text-xs text-muted">{{ $notification['detail'] }}</span><time class="mt-1 block text-[10px] text-muted">{{ $notification['time']->diffForHumans() }}</time></span>
+                    </a>
+                @endif
             </div>
         @empty
             <p class="px-4 py-8 text-center text-sm text-muted">{{ $notificationFilter === 'unread' ? 'You are all caught up.' : ($notificationFilter === 'read' ? 'No past notifications yet.' : 'No notifications yet.') }}</p>

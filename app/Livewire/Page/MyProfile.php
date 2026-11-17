@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Rules\PostMediaUpload;
 use App\Services\CloudinaryMediaClient;
 use App\Services\MediaInspector;
+use App\Services\MediaMetadataStripper;
 use App\Services\PostMediaStorage;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\DB;
@@ -276,17 +277,17 @@ class MyProfile extends Component
         $this->resetPage();
     }
 
-    public function updatedPhoto(CloudinaryMediaClient $cloudinary, PostMediaStorage $storage): void
+    public function updatedPhoto(CloudinaryMediaClient $cloudinary, PostMediaStorage $storage, MediaMetadataStripper $metadataStripper): void
     {
-        $this->storeProfileImage('photo', 'profile_photo', 'profile', $cloudinary, $storage);
+        $this->storeProfileImage('photo', 'profile_photo', 'profile', $cloudinary, $storage, $metadataStripper);
     }
 
-    public function updatedCover(CloudinaryMediaClient $cloudinary, PostMediaStorage $storage): void
+    public function updatedCover(CloudinaryMediaClient $cloudinary, PostMediaStorage $storage, MediaMetadataStripper $metadataStripper): void
     {
-        $this->storeProfileImage('cover', 'cover_photo', 'cover', $cloudinary, $storage);
+        $this->storeProfileImage('cover', 'cover_photo', 'cover', $cloudinary, $storage, $metadataStripper);
     }
 
-    private function storeProfileImage(string $field, string $column, string $folder, CloudinaryMediaClient $cloudinary, PostMediaStorage $storage): void
+    private function storeProfileImage(string $field, string $column, string $folder, CloudinaryMediaClient $cloudinary, PostMediaStorage $storage, MediaMetadataStripper $metadataStripper): void
     {
         $this->authorizeOwner();
         try {
@@ -302,13 +303,18 @@ class MyProfile extends Component
             if (config('post-media.disk') === 'cloudinary') {
                 $asset = $cloudinary->upload($this->{$field}, config('services.cloudinary.folders.user').'/'.$user->id.'/'.$folder, 'image');
             } else {
-                $path = $this->{$field}->store('user/'.$user->id.'/'.$folder, 'local');
-                if (! $path) {
-                    throw new \RuntimeException('Profile photo could not be stored.');
+                $sanitized = $metadataStripper->sanitize($this->{$field}, 'image');
+                try {
+                    $path = $sanitized->store('user/'.$user->id.'/'.$folder, 'local');
+                    if (! $path) {
+                        throw new \RuntimeException('Profile photo could not be stored.');
+                    }
+                    $asset = ['disk' => 'local', 'path' => $path, 'mime_type' => $sanitized->getMimeType()];
+                } finally {
+                    $metadataStripper->cleanup($sanitized, $this->{$field});
                 }
-                $asset = ['disk' => 'local', 'path' => $path];
             }
-            $asset['mime_type'] = $this->{$field}->getMimeType();
+            $asset['mime_type'] ??= $this->{$field}->getMimeType();
             $user->{$column} = $asset;
             $user->save();
         } catch (Throwable) {
@@ -352,7 +358,12 @@ class MyProfile extends Component
                     ->whereNotNull('deleted_at'))
                 ->value('conversation_uuid');
         }
-        $activePosts = $user->posts()->whereNull('archived_at')->when(! $isOwner, fn ($query) => $query->visibleTo(auth()->user()));
+        $activePosts = Post::query()->whereNull('archived_at')->where(function ($posts) use ($user) {
+            $posts->where('user_id', $user->id)
+                ->orWhereHas('collaborations', fn ($collaborations) => $collaborations
+                    ->where('collaborator_id', $user->id)
+                    ->where('status', 'accepted'));
+        })->when(! $isOwner, fn ($query) => $query->visibleTo(auth()->user()));
         if ($blockedByViewer) {
             $activePosts->whereRaw('1 = 0');
         }
@@ -384,7 +395,7 @@ class MyProfile extends Component
             'followingCount' => $blockedByViewer ? 0 : $user->following()->count(),
             'storyCount' => (clone $activePosts)->count(),
             'placeCount' => DB::query()->fromSub($places->toBase(), 'visited_places')->count(),
-            'posts' => $posts->with(['media', 'amenityMedia'])->latest('posts.id')->paginate(12),
+            'posts' => $posts->with(['user', 'media', 'amenityMedia'])->latest('posts.id')->paginate(12),
         ])->layout('components.layouts.coffee', ['title' => $isOwner ? 'My Profile' : $user->name.' - CoffeeSpace', 'section' => 'profile']);
     }
 }

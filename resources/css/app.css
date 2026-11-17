@@ -227,6 +227,8 @@ html.dark .theme-toggle-moon { opacity: 1; transform: scale(1) rotate(0); }
 .map-current-initials { font: 700 11px/1 'DM Sans Variable', sans-serif; }
 .map-burger-marker { display: flex; width: 38px; height: 38px; align-items: center; justify-content: center; border: 3px solid white; border-radius: 9999px; background: var(--coffee-brand); color: var(--coffee-on-brand); box-shadow: 0 2px 8px rgb(0 0 0 / .28); }
 .map-burger-marker svg { width: 24px; height: 24px; }
+.map-osm-cafe-marker { display: flex; align-items: center; justify-content: center; border: 2px solid white; border-radius: 9999px; background: var(--coffee-surface); color: var(--coffee-brand); box-shadow: 0 2px 8px rgb(0 0 0 / .28); }
+.map-osm-cafe-marker svg { width: 20px; height: 20px; }
 .map-status-legend { display: flex; width: 32px; height: 32px; align-items: center; justify-content: center; border: 2px solid white; border-radius: 9999px; box-shadow: 0 2px 7px rgb(0 0 0 / .2); }
 .map-status-legend svg { width: 19px; height: 19px; }
 .map-want-marker, .map-planned-marker { position: relative; display: flex; width: 38px; height: 38px; align-items: center; justify-content: center; border: 3px solid white; border-radius: 9999px; background: #b88960; color: white; box-shadow: 0 2px 8px rgb(0 0 0 / .28); }

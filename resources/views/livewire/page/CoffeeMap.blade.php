@@ -2,6 +2,7 @@
     x-data="coffeeMap($wire, @js($postPins), @js($mapCenter), @js($currentLocation), @js($currentUser), @js($hasPlannedPins))"
     x-on:map-search-results.window="showSearchResults($event.detail.results)"
     x-on:map-place-saved.window="addWantToGoPlace($event.detail.place)"
+    x-on:nearby-cafes-updated.window="showNearbyCafes($event.detail.cafes, $event.detail.stories, $event.detail.center)"
     class="space-y-6"
 >
     {{-- <p class="text-[10px] font-semibold tracking-[.2em] text-muted uppercase">Coffee Map</p> --}}
@@ -15,6 +16,9 @@
                 <label class="inline-flex cursor-pointer items-center gap-2 text-xs text-ink"><input type="checkbox" x-model="visibleLayers.been_here" x-on:change="drawPostPins()" class="size-4 accent-brand"><span class="map-burger-marker size-8"><svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M4.5 10.5C4.5 7.4 7.7 5 11 5c1 0 1.8.2 2.5.5.7.3.6 1.1 1.3 1.2.7.1.8-.9 1.5-.8.8.1.5 1.2 1.1 1.6.6.5 1.6-.2 2.1.4.5.6-.1 1.4.2 2.6M4 13h16M5 16h14M6.5 19h11" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><circle cx="19" cy="5" r=".8" fill="var(--coffee-brand)"/><circle cx="21" cy="7" r=".65" fill="var(--coffee-brand)"/></svg></span>Been here</label>
                 <label class="inline-flex cursor-pointer items-center gap-2 text-xs text-ink"><input type="checkbox" x-model="visibleLayers.want_to_go" x-on:change="drawPostPins()" class="size-4 accent-brand"><span class="map-status-legend map-want-marker"><svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M7 5.5h10v14l-5-3-5 3v-14Z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span>Want to go</label>
                 <label class="inline-flex cursor-pointer items-center gap-2 text-xs text-ink"><input type="checkbox" x-model="visibleLayers.planned" x-on:change="drawPostPins()" class="size-4 accent-brand"><span class="map-status-legend map-planned-marker"><svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><rect x="4" y="5.5" width="16" height="15" rx="2" stroke="currentColor" stroke-width="1.8"/><path d="M8 3.5v4M16 3.5v4M4 10h16" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="m8 15 2.2 2.2L16 12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span>Planned</label>
+                @if($nearbySearchCompleted && count($nearbyCafes))
+                    <span class="inline-flex items-center gap-2 text-xs text-ink"><span class="map-osm-cafe-marker size-8"><x-coffee-icon name="coffee" class="size-4"/></span>OpenStreetMap café</span>
+                @endif
                 @if($hasCommunityPins)
                     <span class="inline-flex items-center gap-2 text-xs text-ink"><span class="map-community-marker"></span>Community story</span>
                 @endif
@@ -121,30 +125,69 @@
             </div>
 
             <div class="flex-1 overflow-y-auto">
-                @if($nearbySearchCompleted && count($nearbyCafes))
-                    <p class="px-5 pt-4 text-xs text-muted">{{ count($nearbyCafes) }} places within {{ number_format((float) $radiusKm, 1) }} km · nearest first</p>
-                    <ul class="mt-2 divide-y divide-line">
-                        @foreach($nearbyCafes as $cafe)
-                            <li wire:key="nearby-cafe-{{ $cafe['osm_type'] }}-{{ $cafe['osm_id'] }}">
-                                <div class="flex items-start gap-3 px-5 py-4">
-                                    <span class="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-full border border-line bg-soft text-brand"><x-coffee-icon name="map" class="size-4"/></span>
-                                    <div class="min-w-0 flex-1">
-                                        <h3 class="break-words font-semibold text-ink">{{ $cafe['name'] }}</h3>
-                                        @if(count($cafe['categories']))<div class="mt-2 flex flex-wrap gap-1.5">@foreach($cafe['categories'] as $category)<span class="rounded-sm bg-soft px-2 py-1 text-[10px] text-brand">{{ $category }}</span>@endforeach</div>@endif
-                                        <p class="mt-1 text-xs leading-5 text-muted">{{ $cafe['address'] ?: 'Address not listed' }}</p>
-                                        @if($cafe['opening_hours'])<p class="mt-1 text-xs leading-5 text-muted">Hours: {{ $cafe['opening_hours'] }}</p>@endif
-                                        <div class="mt-3 flex flex-wrap items-center justify-between gap-3">
-                                            <span class="text-xs font-medium tabular-nums text-brand">{{ $cafe['distance_m'] < 1000 ? number_format($cafe['distance_m']).' m' : number_format($cafe['distance_m'] / 1000, 1).' km' }} away</span>
-                                            <a href="https://www.openstreetmap.org/{{ $cafe['osm_type'] }}/{{ $cafe['osm_id'] }}" target="_blank" rel="noopener noreferrer" class="inline-flex min-h-10 items-center gap-1 text-xs text-brand underline underline-offset-4">Open on OpenStreetMap <x-coffee-icon name="arrow" class="size-3"/></a>
-                                        </div>
-                                    </div>
+                @if($nearbySearchCompleted && (count($nearbyCafes) || count($nearbyStories)))
+                    <div class="divide-y divide-line">
+                        @if(count($nearbyCafes))
+                            <section aria-labelledby="openmap-nearby-heading">
+                                <div class="flex items-baseline justify-between gap-3 px-5 pt-4">
+                                    <h3 id="openmap-nearby-heading" class="text-xs font-semibold text-ink">OpenStreetMap cafés</h3>
+                                    <span class="text-[11px] text-muted">{{ count($nearbyCafes) }} found</span>
                                 </div>
-                            </li>
-                        @endforeach
-                    </ul>
-                    <p class="border-t border-line px-5 py-3 text-[11px] leading-5 text-muted">Cafe names and details come from OpenStreetMap contributors and may be incomplete or out of date.</p>
+                                <ul class="mt-2 divide-y divide-line">
+                                    @foreach($nearbyCafes as $cafe)
+                                        <li wire:key="nearby-cafe-{{ $cafe['osm_type'] }}-{{ $cafe['osm_id'] }}">
+                                            <div class="flex items-start gap-3 px-5 py-4">
+                                                <span class="map-osm-cafe-marker mt-0.5 size-9 shrink-0"><x-coffee-icon name="coffee" class="size-4"/></span>
+                                                <div class="min-w-0 flex-1">
+                                                    <h4 class="break-words font-semibold text-ink">{{ $cafe['name'] }}</h4>
+                                                    @if(count($cafe['categories']))<div class="mt-2 flex flex-wrap gap-1.5">@foreach($cafe['categories'] as $category)<span class="rounded-sm bg-soft px-2 py-1 text-[10px] text-brand">{{ $category }}</span>@endforeach</div>@endif
+                                                    <p class="mt-1 text-xs leading-5 text-muted">{{ $cafe['address'] ?: 'Address not listed' }}</p>
+                                                    @if($cafe['opening_hours'])<p class="mt-1 text-xs leading-5 text-muted">Hours: {{ $cafe['opening_hours'] }}</p>@endif
+                                                    <div class="mt-2 flex flex-wrap items-center justify-between gap-2">
+                                                        <span class="text-xs font-medium tabular-nums text-brand">{{ $cafe['distance_m'] < 1000 ? number_format($cafe['distance_m']).' m' : number_format($cafe['distance_m'] / 1000, 1).' km' }} away</span>
+                                                        <div class="flex items-center gap-3">
+                                                            <button type="button" x-on:click="focusNearbyCafe('{{ $cafe['osm_type'] }}', {{ $cafe['osm_id'] }})" class="min-h-10 text-xs font-medium text-brand underline underline-offset-4">Show on map</button>
+                                                            <a href="https://www.openstreetmap.org/{{ $cafe['osm_type'] }}/{{ $cafe['osm_id'] }}" target="_blank" rel="noopener noreferrer" class="inline-flex min-h-10 items-center gap-1 text-xs text-brand underline underline-offset-4">OpenStreetMap <x-coffee-icon name="arrow" class="size-3"/></a>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </li>
+                                    @endforeach
+                                </ul>
+                                <p class="px-5 py-3 text-[11px] leading-5 text-muted">Community map data from OpenStreetMap contributors.</p>
+                            </section>
+                        @endif
+
+                        @if(count($nearbyStories))
+                            <section aria-labelledby="community-nearby-heading" class="pb-2">
+                                <div class="flex items-baseline justify-between gap-3 px-5 pt-4">
+                                    <h3 id="community-nearby-heading" class="text-xs font-semibold text-ink">CoffeeSpace community stories</h3>
+                                    <span class="text-[11px] text-muted">{{ count($nearbyStories) }} cafés</span>
+                                </div>
+                                <ul class="mt-2 divide-y divide-line">
+                                    @foreach($nearbyStories as $story)
+                                        <li wire:key="nearby-story-{{ $story['place_key'] }}" class="flex items-start gap-3 px-5 py-4">
+                                            <span class="map-community-marker mt-1 size-5 shrink-0" aria-hidden="true"></span>
+                                            <div class="min-w-0 flex-1">
+                                                <h4 class="break-words font-semibold text-ink">{{ $story['cafe'] }}</h4>
+                                                <p class="mt-1 text-xs text-muted">{{ $story['city'] }} · {{ $story['post_count'] }} {{ $story['post_count'] === 1 ? 'story' : 'stories' }}</p>
+                                                <p class="mt-1 text-xs font-medium tabular-nums text-brand">{{ $story['distance_m'] < 1000 ? number_format($story['distance_m']).' m' : number_format($story['distance_m'] / 1000, 1).' km' }} away</p>
+                                                <div class="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
+                                                    @foreach($story['posts'] as $post)
+                                                        <a href="{{ $post['url'] }}" class="text-xs text-brand underline underline-offset-4">{{ $post['title'] }} <span class="text-muted">by {{ $post['author'] }}</span></a>
+                                                    @endforeach
+                                                    <button type="button" x-on:click="focusPostPin('{{ $story['place_key'] }}')" class="min-h-10 text-xs font-medium text-brand underline underline-offset-4">Show on map</button>
+                                                </div>
+                                            </div>
+                                        </li>
+                                    @endforeach
+                                </ul>
+                            </section>
+                        @endif
+                    </div>
                 @elseif($nearbySearchCompleted)
-                    <div class="px-6 py-12 text-center"><x-coffee-icon name="search" class="mx-auto size-7 text-brand"/><h3 class="mt-3 font-semibold">No matching places within {{ number_format((float) $radiusKm, 1) }} km</h3><p class="mt-2 text-sm leading-6 text-muted">OpenStreetMap may not have these place types mapped nearby. Adjust your filters or distance and update the results.</p></div>
+                    <div class="px-6 py-12 text-center"><x-coffee-icon name="search" class="mx-auto size-7 text-brand"/><h3 class="mt-3 font-semibold">No nearby suggestions yet</h3><p class="mt-2 text-sm leading-6 text-muted">Try a wider search distance, or check again when cafés and stories are mapped in this area.</p></div>
                 @elseif($mapLatitude !== null)
                     <div class="px-6 py-12 text-center"><x-coffee-icon name="map" class="mx-auto size-7 text-brand"/><h3 class="mt-3 font-semibold">Your location is pinned</h3><p class="mt-2 text-sm leading-6 text-muted">The map is centered on the location you shared. Update your search to load nearby places again.</p></div>
                 @else

@@ -3,11 +3,13 @@
 namespace App\Livewire\Page;
 
 use App\Models\Post;
+use App\Models\User;
 use App\Rules\MatchingPhotoRatios;
 use App\Rules\PostMediaUpload;
 use App\Services\MediaInspector;
 use App\Services\PlaceSearch;
 use App\Services\PostMediaStorage;
+use App\Services\RealtimeActivity;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\RateLimiter;
@@ -22,6 +24,8 @@ use Throwable;
 
 class AddExperience extends Component
 {
+    private const MAX_COLLABORATORS = 10;
+
     use WithFileUploads;
 
     public string $title = '';
@@ -56,6 +60,90 @@ class AddExperience extends Component
     public $amenityUpload = null;
 
     public array $amenityPhotos = [];
+
+    public string $collaboratorQuery = '';
+
+    #[Locked]
+    public array $collaboratorIds = [];
+
+    #[Locked]
+    public array $collaboratorResults = [];
+
+    public function updatedCollaboratorQuery(): void
+    {
+        $query = mb_substr(trim($this->collaboratorQuery), 0, 100);
+        $this->collaboratorQuery = $query;
+        $this->collaboratorResults = [];
+
+        if (mb_strlen($query) < 2) {
+            return;
+        }
+
+        $viewer = auth()->user();
+        abort_unless($viewer, 401);
+
+        $this->collaboratorResults = User::query()
+            ->where('is_active', true)
+            ->whereKeyNot($viewer->id)
+            ->when($this->collaboratorIds, fn ($users) => $users->whereNotIn('id', $this->collaboratorIds))
+            ->where('name', 'like', '%'.$query.'%')
+            ->whereNotExists(fn ($blocks) => $blocks->selectRaw('1')->from('user_blocks')->where(function ($pair) use ($viewer) {
+                $pair->where(function ($outgoing) use ($viewer) {
+                    $outgoing->where('user_blocks.blocker_id', $viewer->id)
+                        ->whereColumn('user_blocks.blocked_id', 'users.id');
+                })->orWhere(function ($incoming) use ($viewer) {
+                    $incoming->whereColumn('user_blocks.blocker_id', 'users.id')
+                        ->where('user_blocks.blocked_id', $viewer->id);
+                });
+            }))
+            ->orderBy('name')
+            ->limit(8)
+            ->get(['id', 'name', 'profile_photo'])
+            ->map(fn (User $user) => ['id' => $user->id, 'name' => $user->name, 'profile_photo' => $user->profile_photo])
+            ->all();
+    }
+
+    public function selectCollaborator(int $userId): void
+    {
+        if (in_array($userId, $this->collaboratorIds, true)) {
+            return;
+        }
+
+        if (count($this->collaboratorIds) >= self::MAX_COLLABORATORS) {
+            $this->addError('collaboratorIds', 'You can tag up to '.self::MAX_COLLABORATORS.' collaborators.');
+
+            return;
+        }
+
+        $collaborator = $this->findCollaborator($userId);
+        abort_unless($collaborator, 404);
+        $this->collaboratorIds[] = $collaborator->id;
+        $this->collaboratorQuery = '';
+        $this->collaboratorResults = [];
+        $this->resetValidation('collaboratorIds');
+    }
+
+    public function removeCollaborator(int $userId): void
+    {
+        $this->collaboratorIds = array_values(array_filter(
+            $this->collaboratorIds,
+            fn (int $collaboratorId) => $collaboratorId !== $userId,
+        ));
+        $this->resetValidation('collaboratorIds');
+    }
+
+    private function findCollaborator(int $userId): ?User
+    {
+        $viewer = auth()->user();
+        abort_unless($viewer, 401);
+
+        $collaborator = User::query()->where('is_active', true)->find($userId);
+        if (! $collaborator || $collaborator->is($viewer) || $viewer->hasBlocked($collaborator) || $collaborator->hasBlocked($viewer)) {
+            return null;
+        }
+
+        return $collaborator;
+    }
 
     public function searchPlaces(PlaceSearch $places): void
     {
@@ -157,6 +245,17 @@ class AddExperience extends Component
         $this->city = trim($this->city);
         $this->latitude = $this->latitude === '' ? null : $this->latitude;
         $this->longitude = $this->longitude === '' ? null : $this->longitude;
+        $collaborators = [];
+        foreach (array_unique($this->collaboratorIds) as $collaboratorId) {
+            $collaborator = $this->findCollaborator((int) $collaboratorId);
+            if (! $collaborator) {
+                $this->addError('collaboratorIds', 'A selected account is no longer available. Remove it before publishing.');
+
+                return;
+            }
+            $collaborators[] = $collaborator;
+        }
+
         try {
             $this->validate([
                 'title' => ['required', 'string', 'max:160'],
@@ -164,6 +263,8 @@ class AddExperience extends Component
                 'cafeName' => ['required', 'string', 'max:255'],
                 'city' => ['required', 'string', 'max:255'],
                 'visibility' => ['required', Rule::in(['public', 'followers', 'private'])],
+                'collaboratorIds' => ['array', 'max:'.self::MAX_COLLABORATORS],
+                'collaboratorIds.*' => ['required', 'integer', 'distinct'],
                 'latitude' => ['required', 'numeric', 'between:-90,90'],
                 'longitude' => ['required', 'numeric', 'between:-180,180'],
                 'selectedAmenities' => ['array', 'max:5'],
@@ -207,8 +308,10 @@ class AddExperience extends Component
         $amenities = collect($this->selectedAmenities)->mapWithKeys(fn ($key) => [$key => trim($this->amenityDetails[$key])])->all();
         $amenityPhotos = in_array('menu', $this->selectedAmenities, true) ? $this->amenityPhotos : [];
         $storedPaths = [];
+        $post = null;
+        $collaborations = [];
         try {
-            DB::transaction(function () use ($inspector, $storage, &$storedPaths, $amenities, $amenityPhotos) {
+            DB::transaction(function () use ($inspector, $storage, &$storedPaths, &$post, &$collaborations, $amenities, $amenityPhotos, $collaborators) {
                 $user = auth()->user();
                 $post = $user->posts()->create([
                     'author_handle' => Str::slug($user->name, '.') ?: 'coffee.explorer',
@@ -217,6 +320,14 @@ class AddExperience extends Component
                     'visibility' => $this->visibility, 'amenities' => $amenities,
                     'latitude' => $this->latitude, 'longitude' => $this->longitude,
                 ]);
+
+                foreach ($collaborators as $collaborator) {
+                    $collaborations[] = $post->collaborations()->create([
+                        'collaborator_id' => $collaborator->id,
+                        'invited_by_id' => $user->id,
+                        'status' => 'pending',
+                    ]);
+                }
 
                 foreach ($this->uploads as $position => $file) {
                     $metadata = $inspector->inspect($file);
@@ -241,6 +352,13 @@ class AddExperience extends Component
             return;
         }
 
+        if ($post && $collaborations) {
+            $realtime = app(RealtimeActivity::class);
+            foreach ($collaborators as $collaborator) {
+                $realtime->notify($collaborator, 'COLLABORATION');
+            }
+        }
+
         RateLimiter::hit($rateKey, 300);
         session()->flash('post-status', match ($this->visibility) {
             'private' => 'Your private post has been saved. It will not appear in the public feed.',
@@ -252,6 +370,15 @@ class AddExperience extends Component
 
     public function render(): View
     {
-        return view('livewire.page.AddExperience')->layout('components.layouts.coffee', ['title' => 'Add Experience · CoffeeSpace', 'section' => 'post']);
+        $collaboratorsById = $this->collaboratorIds
+            ? User::query()->where('is_active', true)->whereIn('id', $this->collaboratorIds)->get()->keyBy('id')
+            : collect();
+        $collaborators = collect($this->collaboratorIds)
+            ->map(fn (int $collaboratorId) => $collaboratorsById->get($collaboratorId))
+            ->filter()
+            ->values();
+
+        return view('livewire.page.AddExperience', ['collaborators' => $collaborators])
+            ->layout('components.layouts.coffee', ['title' => 'Add Experience · CoffeeSpace', 'section' => 'post']);
     }
 }

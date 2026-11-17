@@ -30,4 +30,6 @@ The post `visibility` field is a string and already supports `public`, `follower
 
 Keep the server's own `.env` values for database access, `APP_URL`, and Cloudinary. Set `POST_MEDIA_DISK=cloudinary` for new remote uploads. Do not upload your local `.env` over production settings.
 
+New Cloudinary image and video uploads use an incoming `fl_force_strip` transformation before the stored original is created. If `POST_MEDIA_DISK=local`, install FFmpeg on the server and set `FFMPEG_BINARY` to its executable path; local uploads are re-encoded/remuxed before storage, and uploads fail closed when sanitization is unavailable.
+
 If Laravel reports `Nothing to migrate` but a column is missing, inspect `migrate:status` and the server schema before proceeding. Do not reset the database or delete migration-history rows to force a rerun.

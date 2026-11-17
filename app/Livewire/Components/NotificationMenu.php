@@ -3,7 +3,10 @@
 namespace App\Livewire\Components;
 
 use App\Models\PlannedVisit;
+use App\Models\PostCollaboration;
+use App\Services\RealtimeActivity;
 use Illuminate\Contracts\View\View;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\URL;
 use Livewire\Attributes\Locked;
 use Livewire\Component;
@@ -13,6 +16,8 @@ class NotificationMenu extends Component
     public bool $open = false;
 
     public string $notificationFilter = 'all';
+
+    public string $collaborationMessage = '';
 
     #[Locked]
     public int $notificationLimit = 20;
@@ -27,6 +32,52 @@ class NotificationMenu extends Component
     public function loadOlder(): void
     {
         $this->notificationLimit = min($this->notificationLimit + 20, 500);
+    }
+
+    public function acceptCollaboration(int $collaborationId): void
+    {
+        $viewer = auth()->user();
+        $invite = PostCollaboration::query()
+            ->whereKey($collaborationId)
+            ->where('collaborator_id', $viewer->id)
+            ->where('status', 'pending')
+            ->whereHas('post.user', fn ($users) => $users->where('is_active', true))
+            ->with(['post.user'])
+            ->firstOrFail();
+
+        abort_if($invite->post->trashed() || ! $invite->post->user?->is_active, 404);
+        abort_if($viewer->hasBlocked($invite->post->user) || $invite->post->user->hasBlocked($viewer), 404);
+
+        DB::transaction(function () use ($collaborationId, $viewer) {
+            $invite = PostCollaboration::query()
+                ->whereKey($collaborationId)
+                ->where('collaborator_id', $viewer->id)
+                ->where('status', 'pending')
+                ->whereHas('post.user', fn ($users) => $users->where('is_active', true))
+                ->lockForUpdate()
+                ->firstOrFail();
+            $invite->update(['status' => 'accepted']);
+        });
+
+        app(RealtimeActivity::class)->notify($viewer, 'COLLABORATION');
+        $this->collaborationMessage = 'The post has been added to your profile.';
+    }
+
+    public function declineCollaboration(int $collaborationId): void
+    {
+        $viewer = auth()->user();
+        DB::transaction(function () use ($collaborationId, $viewer) {
+            $invite = PostCollaboration::query()
+                ->whereKey($collaborationId)
+                ->where('collaborator_id', $viewer->id)
+                ->where('status', 'pending')
+                ->lockForUpdate()
+                ->firstOrFail();
+            $invite->update(['status' => 'declined']);
+        });
+
+        app(RealtimeActivity::class)->notify($viewer, 'COLLABORATION');
+        $this->collaborationMessage = 'Collaboration invitation declined.';
     }
 
     private function redirectLink(string $type, string|int $identifier, int $userId): string
@@ -76,26 +127,46 @@ class NotificationMenu extends Component
         $plans = $this->notificationFilter === 'read'
             ? collect()
             : PlannedVisit::query()->where('accepted_by_id', $viewer->id)->where('status', 'pending')->where('planned_at', '>', now())
-            ->with(['user:id,name,profile_uuid', 'conversation:id,conversation_uuid'])->latest('created_at')->limit(20)->get()
-            ->map(fn (PlannedVisit $plan) => [
-                'id' => null,
-                'type' => 'plan',
-                'title' => $plan->user->name.' invited you for coffee',
-                'detail' => $plan->cafe_name.' - '.$plan->planned_at->timezone(config('app.timezone'))->format('M j, g:i a'),
-                'url' => $this->redirectLink('plan', $plan->id, $viewer->id),
-                'time' => $plan->created_at,
-                'read' => false,
-            ]);
+                ->with(['user:id,name,profile_uuid', 'conversation:id,conversation_uuid'])->latest('created_at')->limit(20)->get()
+                ->map(fn (PlannedVisit $plan) => [
+                    'id' => null,
+                    'type' => 'plan',
+                    'title' => $plan->user->name.' invited you for coffee',
+                    'detail' => $plan->cafe_name.' - '.$plan->planned_at->timezone(config('app.timezone'))->format('M j, g:i a'),
+                    'url' => $this->redirectLink('plan', $plan->id, $viewer->id),
+                    'time' => $plan->created_at,
+                    'read' => false,
+                ]);
 
-        $notifications = $activities->concat($plans)->sortByDesc('time')->values();
+        $collaborations = $this->notificationFilter === 'read'
+            ? collect()
+            : PostCollaboration::query()
+                ->where('collaborator_id', $viewer->id)
+                ->where('status', 'pending')
+                ->whereHas('post.user', fn ($users) => $users->where('is_active', true))
+                ->with(['post.user', 'invitedBy'])
+                ->latest('created_at')
+                ->limit(20)
+                ->get()
+                ->map(fn (PostCollaboration $invite) => [
+                    'id' => $invite->id,
+                    'type' => 'collaboration',
+                    'title' => $invite->invitedBy->name.' invited you to collaborate',
+                    'detail' => $invite->post->title,
+                    'url' => null,
+                    'time' => $invite->created_at,
+                    'read' => false,
+                ]);
+
+        $notifications = $activities->concat($plans)->concat($collaborations)->sortByDesc('time')->values();
 
         return view('livewire.components.notification-menu', [
             'notifications' => $notifications,
             'unreadCount' => $viewer->unreadNotifications()->where($nonMessageActivities)->count() + PlannedVisit::query()
-                ->where('accepted_by_id', $viewer->id)->where('status', 'pending')->where('planned_at', '>', now())->count(),
+                ->where('accepted_by_id', $viewer->id)->where('status', 'pending')->where('planned_at', '>', now())->count()
+                + PostCollaboration::query()->where('collaborator_id', $viewer->id)->where('status', 'pending')->count(),
             'readCount' => $viewer->readNotifications()->where($nonMessageActivities)->count(),
             'hasMore' => $activityCount > $activities->count(),
         ]);
     }
 }
-

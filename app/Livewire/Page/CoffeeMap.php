@@ -18,6 +18,9 @@ class CoffeeMap extends Component
     public array $nearbyCafes = [];
 
     #[Locked]
+    public array $nearbyStories = [];
+
+    #[Locked]
     public bool $nearbySearchCompleted = false;
 
     #[Locked]
@@ -154,6 +157,7 @@ class CoffeeMap extends Component
         )->validate();
 
         $this->nearbyCafes = [];
+        $this->nearbyStories = [];
         $this->nearbySearchCompleted = false;
         $this->mapError = '';
 
@@ -161,10 +165,14 @@ class CoffeeMap extends Component
         $longitude = (float) $coordinates['longitude'];
         $this->mapLatitude = $latitude;
         $this->mapLongitude = $longitude;
+        $radiusMeters = (int) round((float) $coordinates['radiusKm'] * 1000);
+        $this->nearbyStories = $this->communityStoriesNear($latitude, $longitude, $radiusMeters);
 
         $identity = auth()->check() ? 'user:'.auth()->id() : 'ip:'.hash('sha256', (string) request()->ip());
         $limitKey = 'nearby-cafe-search:'.$identity;
         if (RateLimiter::tooManyAttempts($limitKey, 5)) {
+            $this->nearbySearchCompleted = true;
+            $this->dispatchNearbyResults($latitude, $longitude);
             $this->mapError = 'Please wait a minute before searching nearby cafés again.';
 
             return;
@@ -172,12 +180,81 @@ class CoffeeMap extends Component
         RateLimiter::hit($limitKey, 60);
 
         try {
-            $radiusMeters = (int) round((float) $coordinates['radiusKm'] * 1000);
             $this->nearbyCafes = $cafes->search($latitude, $longitude, $radiusMeters, $coordinates['categories']);
-            $this->nearbySearchCompleted = true;
         } catch (\Throwable) {
             $this->mapError = 'Nearby cafés could not be loaded from OpenStreetMap. Please try again shortly.';
         }
+
+        $this->nearbySearchCompleted = true;
+        $this->dispatchNearbyResults($latitude, $longitude);
+    }
+
+    private function dispatchNearbyResults(float $latitude, float $longitude): void
+    {
+        $this->dispatch('nearby-cafes-updated',
+            cafes: $this->nearbyCafes,
+            stories: $this->nearbyStories,
+            center: ['latitude' => $latitude, 'longitude' => $longitude],
+        );
+    }
+
+    private function communityStoriesNear(float $latitude, float $longitude, int $radiusMeters): array
+    {
+        $latitudeDelta = $radiusMeters / 111_320;
+        $longitudeDelta = min(180, $radiusMeters / (111_320 * max(0.01, abs(cos(deg2rad($latitude))))));
+        $minimumLongitude = max(-180, $longitude - $longitudeDelta);
+        $maximumLongitude = min(180, $longitude + $longitudeDelta);
+
+        return Post::visibleTo(auth()->user())
+            ->whereNotNull('latitude')
+            ->whereNotNull('longitude')
+            ->whereBetween('latitude', [max(-90, $latitude - $latitudeDelta), min(90, $latitude + $latitudeDelta)])
+            ->whereBetween('longitude', [$minimumLongitude, $maximumLongitude])
+            ->with('user:id,name,profile_uuid')
+            ->latest('id')
+            ->limit(250)
+            ->get()
+            ->groupBy(fn (Post $post) => $this->mapPlaceKey($post->cafe_name, (float) $post->latitude, (float) $post->longitude))
+            ->map(function ($posts) use ($latitude, $longitude, $radiusMeters) {
+                /** @var Post $post */
+                $post = $posts->first();
+                $distance = $this->distanceInMeters($latitude, $longitude, (float) $post->latitude, (float) $post->longitude);
+
+                if ($distance > $radiusMeters) {
+                    return null;
+                }
+
+                return [
+                    'place_key' => $this->mapPlaceKey($post->cafe_name, (float) $post->latitude, (float) $post->longitude),
+                    'cafe' => $post->cafe_name,
+                    'city' => $post->city,
+                    'latitude' => (float) $post->latitude,
+                    'longitude' => (float) $post->longitude,
+                    'distance_m' => $distance,
+                    'post_count' => $posts->count(),
+                    'posts' => $posts->take(5)->map(fn (Post $story) => [
+                        'title' => $story->title,
+                        'author' => $story->user->name,
+                        'date' => $story->created_at->format('M j, Y'),
+                        'url' => $story->postUrl(),
+                    ])->values()->all(),
+                ];
+            })
+            ->filter()
+            ->sortBy('distance_m')
+            ->take(10)
+            ->values()
+            ->all();
+    }
+
+    private function distanceInMeters(float $fromLatitude, float $fromLongitude, float $toLatitude, float $toLongitude): int
+    {
+        $latitudeDelta = deg2rad($toLatitude - $fromLatitude);
+        $longitudeDelta = deg2rad($toLongitude - $fromLongitude);
+        $a = sin($latitudeDelta / 2) ** 2
+            + cos(deg2rad($fromLatitude)) * cos(deg2rad($toLatitude)) * sin($longitudeDelta / 2) ** 2;
+
+        return (int) round(6_371_000 * 2 * asin(min(1, sqrt($a))));
     }
 
     public function render(): View

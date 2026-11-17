@@ -35,7 +35,12 @@ class CloudinaryMediaClient
         $name = (string) Str::uuid();
         $publicId = $folder.'/'.$name;
         $asset = ['disk' => 'cloudinary', 'path' => $publicId, 'resource_type' => $resourceType, 'delivery_type' => 'authenticated', 'asset_folder' => $folder];
-        $options = ['public_id' => $publicId, 'type' => 'authenticated', 'overwrite' => 'false'];
+        $options = [
+            'public_id' => $publicId,
+            'type' => 'authenticated',
+            'overwrite' => 'false',
+            'transformation' => 'fl_force_strip',
+        ];
         if (config('services.cloudinary.folder_mode') === 'fixed') {
             $options['folder'] = $folder;
             $options['public_id'] = $name;
@@ -56,7 +61,7 @@ class CloudinaryMediaClient
                 throw new RuntimeException('Cloudinary returned media outside the upload limits.');
             }
 
-            return [...$asset, 'asset_id' => $data['asset_id'], 'format' => $data['format']];
+            return [...$asset, 'asset_id' => $data['asset_id'], 'format' => $data['format'], 'size_bytes' => $data['bytes']];
         } catch (Throwable) {
             // Delete by our preallocated ID, including after an ambiguous timeout.
             try {
