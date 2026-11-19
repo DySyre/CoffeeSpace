@@ -153,7 +153,7 @@ class NotificationMenu extends Component
                     'type' => 'collaboration',
                     'title' => $invite->invitedBy->name.' invited you to collaborate',
                     'detail' => $invite->post->title,
-                    'url' => null,
+                    'url' => $invite->post->postUrl(),
                     'time' => $invite->created_at,
                     'read' => false,
                 ]);

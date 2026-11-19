@@ -17,10 +17,10 @@
             <div @class(['flex items-center gap-3 border-b border-line px-4 py-3 last:border-0 transition-colors hover:bg-soft', 'bg-soft/70' => ! $notification['read']])>
                 @if($notification['type'] === 'collaboration')
                     <div class="min-w-0 flex-1">
-                        <div class="flex items-start gap-2">
+                        <a href="{{ $notification['url'] }}" wire:navigate x-on:click="open = false" aria-label="Open post: {{ $notification['detail'] }}" class="flex min-w-0 items-start gap-2 focus-visible:outline-2 focus-visible:outline-brand">
                             <span class="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full bg-soft text-brand"><x-coffee-icon name="profile" class="size-4" /></span>
                             <span class="min-w-0"><span class="block text-sm font-semibold">{{ $notification['title'] }}</span><span class="mt-1 block truncate text-xs text-muted">{{ $notification['detail'] }}</span><time class="mt-1 block text-[10px] text-muted">{{ $notification['time']->diffForHumans() }}</time></span>
-                        </div>
+                        </a>
                         <div class="mt-2 flex gap-2 pl-10">
                             <button type="button" wire:click="acceptCollaboration({{ $notification['id'] }})" wire:loading.attr="disabled" wire:target="acceptCollaboration({{ $notification['id'] }})" class="min-h-9 rounded-sm bg-brand px-3 text-xs font-medium text-on-brand disabled:opacity-50">Accept</button>
                             <button type="button" wire:click="declineCollaboration({{ $notification['id'] }})" wire:loading.attr="disabled" wire:target="declineCollaboration({{ $notification['id'] }})" class="min-h-9 rounded-sm border border-line px-3 text-xs font-medium text-muted disabled:opacity-50">Decline</button>

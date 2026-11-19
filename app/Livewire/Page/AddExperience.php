@@ -262,17 +262,21 @@ class AddExperience extends Component
                 'body' => ['required', 'string', 'max:3000'],
                 'cafeName' => ['required', 'string', 'max:255'],
                 'city' => ['required', 'string', 'max:255'],
-                'visibility' => ['required', Rule::in(['public', 'followers', 'private'])],
+                'visibility' => ['required', Rule::in($collaborators ? ['public'] : ['public', 'followers', 'private'])],
                 'collaboratorIds' => ['array', 'max:'.self::MAX_COLLABORATORS],
                 'collaboratorIds.*' => ['required', 'integer', 'distinct'],
-                'latitude' => ['required', 'numeric', 'between:-90,90'],
-                'longitude' => ['required', 'numeric', 'between:-180,180'],
+                'latitude' => ['nullable', 'numeric', 'between:-90,90', 'required_with:longitude'],
+                'longitude' => ['nullable', 'numeric', 'between:-180,180', 'required_with:latitude'],
                 'selectedAmenities' => ['array', 'max:5'],
                 'selectedAmenities.*' => ['required', 'string', 'distinct', Rule::in(array_keys(Post::AMENITIES))],
                 'amenityDetails' => ['array'],
                 'uploads' => ['required', 'array', 'min:1', new MatchingPhotoRatios],
                 'uploads.*' => ['required', 'file', new PostMediaUpload],
-            ], ['latitude.required' => 'Attach a cafe pin before publishing.', 'longitude.required' => 'Attach a cafe pin before publishing.']);
+            ], [
+                'latitude.required_with' => 'Attach a complete cafe pin or clear the map location before publishing.',
+                'longitude.required_with' => 'Attach a complete cafe pin or clear the map location before publishing.',
+                'visibility.in' => 'Posts with collaborators must be public.',
+            ]);
             $detailRules = [];
             foreach ($this->selectedAmenities as $key) {
                 $detailRules['amenityDetails.'.$key] = ['required', 'string', 'max:500'];
